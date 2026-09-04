@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   Profile,
   School,
@@ -31,6 +31,7 @@ import {
   INITIAL_REWARDS,
   INITIAL_REDEMPTIONS,
 } from '@/lib/mockData';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 
 interface NotificationToast {
   id: string;
@@ -223,6 +224,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWeeklySocials(weeklySocials.filter((s) => s.id !== socialId));
     addNotification('Social Eliminado 🗑️', 'El evento fue retirado del tablón.', 'info');
   };
+
+  // Supabase Data Sync & Auth State Listener
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    // Fetch initial Supabase data
+    const fetchSupabaseData = async () => {
+      try {
+        const { data: dbProfiles } = await supabase.from('profiles').select('*');
+        if (dbProfiles && dbProfiles.length > 0) {
+          setProfiles(dbProfiles as Profile[]);
+        }
+
+        const { data: dbDisciplines } = await supabase.from('disciplines').select('*');
+        if (dbDisciplines && dbDisciplines.length > 0) {
+          setDisciplines(dbDisciplines as Discipline[]);
+        }
+
+        const { data: dbLevelTrees } = await supabase.from('level_trees').select('*');
+        if (dbLevelTrees && dbLevelTrees.length > 0) {
+          setLevelTrees(dbLevelTrees as LevelTree[]);
+        }
+
+        const { data: dbSchools } = await supabase.from('schools').select('*');
+        if (dbSchools && dbSchools.length > 0) {
+          setSchools(dbSchools as School[]);
+          setCurrentSchool(dbSchools[0] as School);
+        }
+      } catch (err) {
+        console.error('Error loading Supabase data:', err);
+      }
+    };
+
+    fetchSupabaseData();
+
+    // Listen to Supabase Auth State Changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const { data: userProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userProfile) {
+          setCurrentUser(userProfile as Profile);
+        }
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   // Student Gamification stats
   const [studentXP, setStudentXP] = useState<number>(380);
