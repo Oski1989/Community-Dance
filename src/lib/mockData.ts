@@ -4,7 +4,7 @@ export const INITIAL_PROFILES: Profile[] = [
   {
     id: 'admin-super',
     full_name: 'SuperAdmin Master',
-    email: 'admin@dancexp.app',
+    email: 'admin@dance.com',
     role: 'admin',
     membership_status: 'active',
     is_paying: false,

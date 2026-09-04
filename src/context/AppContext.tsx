@@ -436,6 +436,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setProfiles((prev) => [...prev, newProfile]);
     setCurrentUser(newProfile);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('profiles').upsert(newProfile).then();
+    }
+
     addNotification(
       'Registro Exitoso 🎉',
       'Tu cuenta de alumno ha sido creada. Estado: Inactivo. Adjunta tu comprobante Bizum para solicitar activación.',
@@ -1184,6 +1189,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser.id === profileId) {
       setCurrentUser((prev) => ({ ...prev, ...updates }));
     }
+
+    if (isSupabaseConfigured()) {
+      supabase.from('profiles').update(updates).eq('id', profileId).then();
+    }
+
     addNotification('Perfil Actualizado 👤', 'Se han guardado los cambios en el perfil.', 'info');
   };
 

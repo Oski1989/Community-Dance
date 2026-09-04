@@ -240,7 +240,21 @@ CREATE POLICY "Weekly socials viewable by everyone" ON public.weekly_socials FOR
 -- ------------------------------------------
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  assigned_role TEXT;
+  assigned_status TEXT;
 BEGIN
+  IF NEW.email = 'admin@dance.com' OR COALESCE(NEW.raw_user_meta_data->>'role', '') = 'admin' THEN
+    assigned_role := 'admin';
+    assigned_status := 'active';
+  ELSIF COALESCE(NEW.raw_user_meta_data->>'role', '') = 'teacher' THEN
+    assigned_role := 'teacher';
+    assigned_status := 'active';
+  ELSE
+    assigned_role := 'student';
+    assigned_status := 'pending_approval';
+  END IF;
+
   INSERT INTO public.profiles (
     id,
     full_name,
@@ -257,10 +271,10 @@ BEGIN
   )
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'SuperAdmin Master'),
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'role', 'student'),
-    'pending_approval',
+    assigned_role,
+    assigned_status,
     COALESCE(NEW.raw_user_meta_data->>'discipline_preference', 'Salsa en Línea'),
     'leader',
     'single',
@@ -271,7 +285,9 @@ BEGIN
   )
   ON CONFLICT (id) DO UPDATE SET
     full_name = EXCLUDED.full_name,
-    email = EXCLUDED.email;
+    email = EXCLUDED.email,
+    role = EXCLUDED.role,
+    membership_status = EXCLUDED.membership_status;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
