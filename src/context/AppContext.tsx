@@ -74,7 +74,7 @@ interface AppContextType {
   setCurrentUserById: (userId: string) => void;
   
   // Auth & Student Membership Management
-  registerUser: (fullName: string, email: string, phone: string, disciplinePreference: string) => void;
+  registerUser: (fullName: string, email: string, phone: string, disciplinePreference: string, userId?: string) => void;
   loginUser: (email: string) => boolean;
   logoutUser: () => void;
   requestActivation: (paymentNote: string, receiptUrl?: string) => void;
@@ -235,7 +235,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const { data: dbProfiles } = await supabase.from('profiles').select('*');
         if (dbProfiles && dbProfiles.length > 0) {
-          setProfiles(dbProfiles as Profile[]);
+          setProfiles((prev) => {
+            const merged = [...(dbProfiles as Profile[])];
+            prev.forEach((p) => {
+              if (!merged.some((m) => m.id === p.id || m.email.toLowerCase() === p.email.toLowerCase())) {
+                merged.push(p);
+              }
+            });
+            return merged;
+          });
         }
 
         const { data: dbDisciplines } = await supabase.from('disciplines').select('*');
@@ -430,9 +438,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Auth & Student Registration
-  const registerUser = (fullName: string, email: string, phone: string, disciplinePreference: string) => {
+  const registerUser = (fullName: string, email: string, phone: string, disciplinePreference: string, userId?: string) => {
+    const idToUse = userId || `user-${Date.now()}`;
     const newProfile: Profile = {
-      id: `user-${Date.now()}`,
+      id: idToUse,
       full_name: fullName,
       email,
       role: 'student',
@@ -445,7 +454,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       victory_streak_weeks: 0,
     };
 
-    setProfiles((prev) => [...prev, newProfile]);
+    setProfiles((prev) => {
+      const exists = prev.some((p) => p.id === idToUse || p.email.toLowerCase() === email.toLowerCase());
+      if (exists) {
+        return prev.map((p) => (p.id === idToUse || p.email.toLowerCase() === email.toLowerCase() ? { ...p, ...newProfile } : p));
+      }
+      return [...prev, newProfile];
+    });
     setCurrentUser(newProfile);
 
     if (isSupabaseConfigured()) {

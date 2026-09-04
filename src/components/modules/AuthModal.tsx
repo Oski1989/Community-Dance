@@ -60,15 +60,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           return;
         }
 
+        const signUpUserId = data?.user?.id;
+
         addNotification(
           'Registro Exitoso en Supabase 🎉',
           'Tu cuenta fue creada en la base de datos real. Puedes adjuntar tu recibo para solicitar la activación.',
           'info'
         );
+
+        // Sync local context state with exact Supabase User ID
+        registerUser(fullName, email, phone, finalDiscipline, signUpUserId);
+      } else {
+        registerUser(fullName, email, phone, finalDiscipline);
       }
 
-      // Sync local context state
-      registerUser(fullName, email, phone, finalDiscipline);
       setIsLoading(false);
       onClose();
     } catch (err: any) {
