@@ -21,6 +21,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [password, setPassword] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [discipline, setDiscipline] = useState<string>('Salsa en Línea');
+  const [customDiscipline, setCustomDiscipline] = useState<string>('');
   
   const [loginEmail, setLoginEmail] = useState<string>('');
   const [loginPassword, setLoginPassword] = useState<string>('');
@@ -36,6 +37,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setErrorMessage(null);
     setIsLoading(true);
 
+    const finalDiscipline = discipline === 'Otro' ? (customDiscipline || 'Otro Ritmo') : discipline;
+
     try {
       if (isSupabaseConfigured()) {
         const { data, error } = await supabase.auth.signUp({
@@ -45,7 +48,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             data: {
               full_name: fullName,
               phone: phone,
-              discipline_preference: discipline,
+              discipline_preference: finalDiscipline,
               role: 'student',
             },
           },
@@ -65,7 +68,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       }
 
       // Sync local context state
-      registerUser(fullName, email, phone, discipline);
+      registerUser(fullName, email, phone, finalDiscipline);
       setIsLoading(false);
       onClose();
     } catch (err: any) {
@@ -226,7 +229,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-300 block">Disciplina Preferida:</label>
+              <label className="text-xs font-bold text-slate-300 block">Disciplina / Ritmo Preferido:</label>
               <div className="relative">
                 <Music className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                 <select
@@ -234,11 +237,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   onChange={(e) => setDiscipline(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500 cursor-pointer"
                 >
-                  <option value="Salsa en Línea">Salsa en Línea (On1/On2)</option>
-                  <option value="Bachata Sensual">Bachata Sensual</option>
-                  <option value="Salsa Cubana">Salsa Cubana & Rueda</option>
+                  <option value="Salsa en Línea">Salsa (Salsa en Línea / Cubana / Caleña)</option>
+                  <option value="Bachata Sensual">Bachata (Sensual / Tradicional / Moderna)</option>
+                  <option value="Kizomba & Semba">Kizomba & Semba</option>
+                  <option value="Zouk Lambada">Zouk Lambada</option>
+                  <option value="Urbano & Reggaeton">Urbano / Hip Hop / Reggaeton</option>
+                  <option value="Danza Contemporánea & Jazz">Danza Contemporánea & Jazz</option>
+                  <option value="Tango">Tango Argentino</option>
+                  <option value="Otro">Otro (Especificar ritmo...)</option>
                 </select>
               </div>
+
+              {discipline === 'Otro' && (
+                <div className="pt-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Escribe tu disciplina o ritmo..."
+                    value={customDiscipline}
+                    onChange={(e) => setCustomDiscipline(e.target.value)}
+                    className="w-full bg-slate-950 border border-purple-500/50 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              )}
             </div>
 
             <button

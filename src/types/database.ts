@@ -29,6 +29,9 @@ export interface Profile {
   payment_receipt_url?: string;
   payment_note?: string;
   created_at?: string;
+  xp?: number;
+  rhythm_points?: number;
+  victory_streak_weeks?: number;
 
   // Student Dance & Social Match Profile Fields
   dance_role?: 'leader' | 'follower' | 'both';

@@ -3,7 +3,7 @@ import { useApp } from '@/context/AppContext';
 import { AuthModal } from '@/components/modules/AuthModal';
 import { NotificationDrawer } from '@/components/modules/NotificationDrawer';
 import { TabType } from '@/components/layout/BottomNav';
-import { Shield, Sparkles, Building2, ChevronDown, User, LogIn, Award, Users, Settings, Bell, Video, PartyPopper, DollarSign, BookOpen } from 'lucide-react';
+import { Shield, Sparkles, Building2, ChevronDown, User, LogIn, LogOut, Award, Users, Settings, Bell, Video, PartyPopper, DollarSign, BookOpen } from 'lucide-react';
 
 interface HeaderProps {
   activeTab?: TabType;
@@ -11,7 +11,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
-  const { currentSchool, schools, setSchoolById, currentUser, profiles, notifications } = useApp();
+  const { currentSchool, schools, setSchoolById, currentUser, profiles, notifications, logoutUser } = useApp();
   const [isSchoolMenuOpen, setIsSchoolMenuOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
@@ -20,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
   const isTeacher = currentUser.role === 'teacher';
   const isAdmin = currentUser.role === 'admin';
   const isSchool = currentUser.role === 'school';
+  const isGuest = currentUser.id.startsWith('guest');
 
   return (
     <>
@@ -228,14 +229,24 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
               </div>
             </div>
 
-            {/* Auth / Account Switcher Button */}
-            <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="px-3 py-1.5 rounded-2xl bg-purple-600/20 border border-purple-500/40 hover:bg-purple-600 text-purple-300 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Cuenta / Rol</span>
-            </button>
+            {/* Auth / LogOut Button */}
+            {isGuest ? (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="px-3 py-1.5 rounded-2xl bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white font-bold text-xs shadow-glow-violet transition-all flex items-center gap-1.5"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Iniciar Sesión</span>
+              </button>
+            ) : (
+              <button
+                onClick={logoutUser}
+                className="px-3 py-1.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 hover:bg-rose-600 text-rose-300 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cerrar Sesión</span>
+              </button>
+            )}
           </div>
         </div>
       </header>

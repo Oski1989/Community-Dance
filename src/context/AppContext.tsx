@@ -76,6 +76,7 @@ interface AppContextType {
   // Auth & Student Membership Management
   registerUser: (fullName: string, email: string, phone: string, disciplinePreference: string) => void;
   loginUser: (email: string) => boolean;
+  logoutUser: () => void;
   requestActivation: (paymentNote: string, receiptUrl?: string) => void;
   updateStudentStatus: (studentId: string, status: MembershipStatus) => void;
   bulkUpdateStudentStatus: (studentIds: string[], status: MembershipStatus) => void;
@@ -432,6 +433,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       phone,
       discipline_preference: disciplinePreference,
       avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      xp: 0,
+      rhythm_points: 0,
+      victory_streak_weeks: 0,
     };
 
     setProfiles((prev) => [...prev, newProfile]);
@@ -456,6 +460,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     }
     return false;
+  };
+
+  const logoutUser = () => {
+    if (isSupabaseConfigured()) {
+      supabase.auth.signOut().then();
+    }
+    setCurrentUser({
+      id: `guest-${Date.now()}`,
+      full_name: 'Invitado',
+      email: 'invitado@dance.com',
+      role: 'student',
+      membership_status: 'inactive',
+      avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80',
+      xp: 0,
+      rhythm_points: 0,
+      victory_streak_weeks: 0,
+    });
+    addNotification('Sesión Cerrada 🔒', 'Has cerrado tu sesión de usuario correctamente.', 'info');
   };
 
   // Student Activation Request (with Bizum receipt)
@@ -1346,6 +1368,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUserById,
         registerUser,
         loginUser,
+        logoutUser,
         requestActivation,
         updateStudentStatus,
         bulkUpdateStudentStatus,
