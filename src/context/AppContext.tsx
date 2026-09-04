@@ -161,9 +161,47 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const GUEST_PROFILE: Profile = {
+  id: 'guest-visitor',
+  full_name: 'Invitado',
+  email: 'invitado@dance.com',
+  role: 'student',
+  membership_status: 'inactive',
+  avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80',
+  xp: 0,
+  rhythm_points: 0,
+  victory_streak_weeks: 0,
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profiles, setProfiles] = useState<Profile[]>(INITIAL_PROFILES);
-  const [currentUser, setCurrentUser] = useState<Profile>(INITIAL_PROFILES[0]); // Default to SuperAdmin (admin@dance.com)
+  
+  // Persisted current active user state
+  const [currentUser, setCurrentUser] = useState<Profile>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('dancexp_active_user_data');
+      if (savedUser) {
+        try {
+          return JSON.parse(savedUser);
+        } catch (e) {
+          console.error('Error parsing stored session:', e);
+        }
+      }
+    }
+    return GUEST_PROFILE;
+  });
+
+  const updateCurrentUserState = (user: Profile) => {
+    setCurrentUser(user);
+    if (typeof window !== 'undefined') {
+      if (user.id.startsWith('guest')) {
+        localStorage.removeItem('dancexp_active_user_data');
+      } else {
+        localStorage.setItem('dancexp_active_user_data', JSON.stringify(user));
+      }
+    }
+  };
+
   const [schools, setSchools] = useState<School[]>(INITIAL_SCHOOLS);
   const [currentSchool, setCurrentSchool] = useState<School>(INITIAL_SCHOOLS[0]);
   const [classes, setClasses] = useState<DanceClass[]>(INITIAL_CLASSES);
@@ -235,8 +273,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const { data: dbProfiles } = await supabase.from('profiles').select('*');
         if (dbProfiles && dbProfiles.length > 0) {
+          const profilesList = dbProfiles as Profile[];
           setProfiles((prev) => {
-            const merged = [...(dbProfiles as Profile[])];
+            const merged = [...profilesList];
             prev.forEach((p) => {
               if (!merged.some((m) => m.id === p.id || m.email.toLowerCase() === p.email.toLowerCase())) {
                 merged.push(p);
@@ -244,6 +283,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
             return merged;
           });
+
+          // Restore current active user from latest profiles list
+          if (typeof window !== 'undefined') {
+            const savedUser = localStorage.getItem('dancexp_active_user_data');
+            if (savedUser) {
+              try {
+                const parsed = JSON.parse(savedUser);
+                const matched = profilesList.find(
+                  (p) => p.id === parsed.id || p.email.toLowerCase() === parsed.email?.toLowerCase()
+                );
+                if (matched) {
+                  updateCurrentUserState(matched);
+                }
+              } catch (e) {}
+            }
+          }
         }
 
         const { data: dbDisciplines } = await supabase.from('disciplines').select('*');
@@ -278,8 +333,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .single();
 
         if (userProfile) {
-          setCurrentUser(userProfile as Profile);
+          updateCurrentUserState(userProfile as Profile);
         }
+      } else if (event === 'SIGNED_OUT') {
+        updateCurrentUserState(GUEST_PROFILE);
       }
     });
 
@@ -428,7 +485,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const setCurrentUserById = (userId: string) => {
     const user = profiles.find((p) => p.id === userId);
     if (user) {
-      setCurrentUser(user);
+      updateCurrentUserState(user);
       addNotification(
         'Usuario Alternado',
         `Sesión activa como: ${user.full_name} (${user.role.toUpperCase()} - Status: ${user.membership_status})`,
@@ -461,7 +518,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return [...prev, newProfile];
     });
-    setCurrentUser(newProfile);
+    updateCurrentUserState(newProfile);
 
     if (isSupabaseConfigured()) {
       supabase.from('profiles').upsert(newProfile).then();
@@ -477,7 +534,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const loginUser = (email: string): boolean => {
     const found = profiles.find((p) => p.email.toLowerCase() === email.toLowerCase());
     if (found) {
-      setCurrentUser(found);
+      updateCurrentUserState(found);
       addNotification('Sesión Iniciada', `Bienvenido de nuevo, ${found.full_name}`, 'info');
       return true;
     }
@@ -488,17 +545,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSupabaseConfigured()) {
       supabase.auth.signOut().then();
     }
-    setCurrentUser({
-      id: `guest-${Date.now()}`,
-      full_name: 'Invitado',
-      email: 'invitado@dance.com',
-      role: 'student',
-      membership_status: 'inactive',
-      avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80',
-      xp: 0,
-      rhythm_points: 0,
-      victory_streak_weeks: 0,
-    });
+    updateCurrentUserState(GUEST_PROFILE);
     addNotification('Sesión Cerrada 🔒', 'Has cerrado tu sesión de usuario correctamente.', 'info');
   };
 
@@ -512,7 +559,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setProfiles((prev) => prev.map((p) => (p.id === currentUser.id ? updatedUser : p)));
-    setCurrentUser(updatedUser);
+    updateCurrentUserState(updatedUser);
     addNotification(
       'Solicitud Enviada 📩',
       'Tu comprobante de pago ha sido enviado al Profesor para su revisión y alta.',
@@ -534,11 +581,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
     if (currentUser.id === studentId) {
-      setCurrentUser((prev) => ({
-        ...prev,
+      updateCurrentUserState({
+        ...currentUser,
         membership_status: status,
-        membership_start_date: status === 'active' ? new Date().toISOString() : prev.membership_start_date,
-      }));
+        membership_start_date: status === 'active' ? new Date().toISOString() : currentUser.membership_start_date,
+      });
     }
 
     const student = profiles.find((p) => p.id === studentId);
@@ -620,7 +667,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((p) => (p.id === userId ? { ...p, role: newRole } : p))
     );
     if (currentUser.id === userId) {
-      setCurrentUser((prev) => ({ ...prev, role: newRole }));
+      updateCurrentUserState({ ...currentUser, role: newRole });
     }
     const target = profiles.find((p) => p.id === userId);
     addNotification('Rol de Usuario Modificado 🛡️', `${target?.full_name} ahora tiene rol de ${newRole.toUpperCase()}`, 'badge');
@@ -1231,7 +1278,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((p) => (p.id === profileId ? { ...p, ...updates } : p))
     );
     if (currentUser.id === profileId) {
-      setCurrentUser((prev) => ({ ...prev, ...updates }));
+      updateCurrentUserState({ ...currentUser, ...updates });
     }
 
     if (isSupabaseConfigured()) {
