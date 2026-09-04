@@ -309,62 +309,64 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               </button>
             </form>
 
-            {/* Quick Demo Selector */}
-            <div className="border-t border-slate-800 pt-4 space-y-2">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Simulación Rápida de Usuarios / Roles:
-              </span>
-              <div className="space-y-1.5">
-                {profiles.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      setCurrentUserById(p.id);
-                      onClose();
-                    }}
-                    className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all flex items-center justify-between ${
-                      currentUser.id === p.id
-                        ? 'bg-purple-950/60 border-purple-500 text-white'
-                        : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <img src={p.avatar_url} alt={p.full_name} className="w-7 h-7 rounded-full object-cover" />
-                      <div>
-                        <span className="font-bold block text-white">{p.full_name}</span>
-                        <span className="text-[10px] text-slate-400">{p.email}</span>
+            {/* Quick Demo Selector (Only in Local Mock Mode) */}
+            {!isSupabaseConfigured() && (
+              <div className="border-t border-slate-800 pt-4 space-y-2">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Simulación Rápida de Usuarios / Roles:
+                </span>
+                <div className="space-y-1.5">
+                  {profiles.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setCurrentUserById(p.id);
+                        onClose();
+                      }}
+                      className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all flex items-center justify-between ${
+                        currentUser.id === p.id
+                          ? 'bg-purple-950/60 border-purple-500 text-white'
+                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <img src={p.avatar_url} alt={p.full_name} className="w-7 h-7 rounded-full object-cover" />
+                        <div>
+                          <span className="font-bold block text-white">{p.full_name}</span>
+                          <span className="text-[10px] text-slate-400">{p.email}</span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                          p.role === 'admin'
-                            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                            : p.role === 'teacher'
-                            ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                            : 'bg-slate-800 text-slate-400 border-slate-700'
-                        }`}
-                      >
-                        {p.role}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                            p.role === 'admin'
+                              ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                              : p.role === 'teacher'
+                              ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}
+                        >
+                          {p.role}
+                        </span>
 
-                      <span
-                        className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                          p.membership_status === 'active'
-                            ? 'bg-emerald-500/20 text-emerald-300'
-                            : p.membership_status === 'pending_approval'
-                            ? 'bg-amber-500/20 text-amber-300'
-                            : 'bg-rose-500/20 text-rose-300'
-                        }`}
-                      >
-                        {p.membership_status}
-                      </span>
-                    </div>
-                  </button>
-                ))}
+                        <span
+                          className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                            p.membership_status === 'active'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : p.membership_status === 'pending_approval'
+                              ? 'bg-amber-500/20 text-amber-300'
+                              : 'bg-rose-500/20 text-rose-300'
+                          }`}
+                        >
+                          {p.membership_status}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </motion.div>

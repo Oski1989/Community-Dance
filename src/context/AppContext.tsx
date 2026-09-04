@@ -162,7 +162,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profiles, setProfiles] = useState<Profile[]>(INITIAL_PROFILES);
-  const [currentUser, setCurrentUser] = useState<Profile>(INITIAL_PROFILES[2]); // Default to Osqui (student)
+  const [currentUser, setCurrentUser] = useState<Profile>(INITIAL_PROFILES[0]); // Default to SuperAdmin (admin@dance.com)
   const [schools, setSchools] = useState<School[]>(INITIAL_SCHOOLS);
   const [currentSchool, setCurrentSchool] = useState<School>(INITIAL_SCHOOLS[0]);
   const [classes, setClasses] = useState<DanceClass[]>(INITIAL_CLASSES);
