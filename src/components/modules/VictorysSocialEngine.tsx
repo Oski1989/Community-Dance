@@ -37,9 +37,13 @@ export const VictorysSocialEngine: React.FC = () => {
     studentRhythmPoints,
     currentUser,
     addNotification,
+    weeklySocials,
   } = useApp();
 
   const isInactive = currentUser.role === 'student' && currentUser.membership_status !== 'active';
+
+  // Social Filter state (current_week, past, upcoming)
+  const [socialFilter, setSocialFilter] = useState<'current_week' | 'past' | 'upcoming'>('current_week');
 
   // GPS state
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
@@ -158,6 +162,87 @@ export const VictorysSocialEngine: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Weekly Socials & Events Filter Section */}
+      <div className="space-y-4 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <h3 className="font-extrabold text-white text-lg flex items-center gap-2">
+              <PartyPopper className="w-5 h-5 text-emerald-400" /> Cartelera de Sociales & Eventos
+            </h3>
+            <p className="text-xs text-slate-400">Próximas fiestas, sociales y eventos pasados de la escuela</p>
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+            <button
+              onClick={() => setSocialFilter('current_week')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+                socialFilter === 'current_week'
+                  ? 'bg-emerald-600 text-slate-950 shadow-glow-emerald'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Semana Actual
+            </button>
+            <button
+              onClick={() => setSocialFilter('past')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+                socialFilter === 'past'
+                  ? 'bg-emerald-600 text-slate-950 shadow-glow-emerald'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Pasados
+            </button>
+            <button
+              onClick={() => setSocialFilter('upcoming')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+                socialFilter === 'upcoming'
+                  ? 'bg-emerald-600 text-slate-950 shadow-glow-emerald'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Próximos / Futuros
+            </button>
+          </div>
+        </div>
+
+        {/* Social Events Display */}
+        {weeklySocials.length === 0 ? (
+          <div className="p-8 rounded-2xl bg-slate-950 border border-slate-800 text-center text-xs text-slate-400 space-y-1">
+            <p className="font-bold text-white">No hay sociales programados aún</p>
+            <p className="text-slate-500">Los profesores publicarán pronto la cartelera de eventos.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {weeklySocials.map((social) => (
+              <div
+                key={social.id}
+                className="rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden hover:border-emerald-500/40 transition-all flex flex-col justify-between"
+              >
+                {social.banner_url && (
+                  <div className="h-36 overflow-hidden relative">
+                    <img src={social.banner_url} alt={social.title} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
+                    <span className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black text-[11px]">
+                      {social.day_of_week}
+                    </span>
+                  </div>
+                )}
+                <div className="p-4 space-y-2">
+                  <h4 className="font-black text-white text-base leading-snug">{social.title}</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed">{social.description}</p>
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-emerald-400 font-bold">
+                    <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {social.time}</span>
+                    <span className="flex items-center gap-1 text-slate-400 font-normal"><MapPin className="w-3.5 h-3.5 text-emerald-400" /> {social.location}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Module 4 Components Grid */}

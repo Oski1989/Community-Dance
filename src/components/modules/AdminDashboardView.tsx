@@ -35,10 +35,44 @@ export const AdminDashboardView: React.FC = () => {
     deleteWeeklySocial,
     updateSchoolMonthlyEventLimit,
     currentUser,
+    webConfig,
+    updateWebConfig,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'teachers' | 'students' | 'schools' | 'finance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'teachers' | 'students' | 'schools' | 'finance' | 'web_config'>('overview');
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  // Web Config Form State
+  const [cfgAppName, setCfgAppName] = useState<string>(webConfig.app_name || 'DanceXP');
+  const [cfgTagline, setCfgTagline] = useState<string>(webConfig.tagline || 'Academia Oficial & Plataforma de Baile');
+  const [cfgHeroTitle, setCfgHeroTitle] = useState<string>(webConfig.hero_title || 'Aprende a Bailar Salsa, Bachata y Más');
+  const [cfgHeroSubtitle, setCfgHeroSubtitle] = useState<string>(
+    webConfig.hero_subtitle || 'Formación pedagógica estructurada, temarios graduales y la mejor experiencia social de baile.'
+  );
+  const [cfgLogoUrl, setCfgLogoUrl] = useState<string>(webConfig.logo_url || '');
+  const [cfgFaviconUrl, setCfgFaviconUrl] = useState<string>(webConfig.favicon_url || '');
+  const [cfgPwaName, setCfgPwaName] = useState<string>(webConfig.pwa_app_name || 'DanceXP WebApp');
+  const [cfgPhone, setCfgPhone] = useState<string>(webConfig.contact_phone || '+34 600 000 000');
+  const [cfgEmail, setCfgEmail] = useState<string>(webConfig.contact_email || 'info@dancexp.app');
+  const [cfgInstagram, setCfgInstagram] = useState<string>(webConfig.instagram_url || 'https://instagram.com');
+  const [cfgYoutube, setCfgYoutube] = useState<string>(webConfig.youtube_url || 'https://youtube.com');
+
+  const handleSaveWebConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateWebConfig({
+      app_name: cfgAppName,
+      tagline: cfgTagline,
+      hero_title: cfgHeroTitle,
+      hero_subtitle: cfgHeroSubtitle,
+      logo_url: cfgLogoUrl,
+      favicon_url: cfgFaviconUrl,
+      pwa_app_name: cfgPwaName,
+      contact_phone: cfgPhone,
+      contact_email: cfgEmail,
+      instagram_url: cfgInstagram,
+      youtube_url: cfgYoutube,
+    });
+  };
 
   // Weekly Social Creation Modal / Form State
   const [showSocialModal, setShowSocialModal] = useState<boolean>(false);
@@ -155,6 +189,18 @@ export const AdminDashboardView: React.FC = () => {
         >
           <DollarSign className="w-4 h-4 text-emerald-400" />
           <span>Cuentas & Finanzas por Sector</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('web_config')}
+          className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all ${
+            activeTab === 'web_config'
+              ? 'bg-indigo-600 text-white shadow-glow-indigo'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-purple-400" />
+          <span>Configuración Web & PWA</span>
         </button>
       </div>
 
@@ -487,6 +533,171 @@ export const AdminDashboardView: React.FC = () => {
               <p className="text-[11px] text-slate-400">Palma, Barcelona y sedes afiliadas</p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 6: CONFIGURACIÓN DE LA WEB & PWA */}
+      {activeTab === 'web_config' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+              <h3 className="font-extrabold text-white text-lg flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-400" /> Configuración Global de la Web & App PWA
+              </h3>
+              <p className="text-xs text-slate-400">
+                Personaliza títulos, subtítulos, logos, favicon e información de contacto visible para usuarios e invitados.
+              </p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold">
+              SuperAdmin Controls
+            </span>
+          </div>
+
+          <form onSubmit={handleSaveWebConfig} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Basic Branding */}
+              <div className="space-y-4 p-5 rounded-2xl bg-slate-950 border border-slate-800">
+                <h4 className="font-bold text-sm text-purple-400 border-b border-slate-800 pb-2">Branding & Títulos</h4>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Nombre de la App / Web:</label>
+                  <input
+                    type="text"
+                    value={cfgAppName}
+                    onChange={(e) => setCfgAppName(e.target.value)}
+                    placeholder="DanceXP Master"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-bold outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Tagline / Subtítulo Corto Header:</label>
+                  <input
+                    type="text"
+                    value={cfgTagline}
+                    onChange={(e) => setCfgTagline(e.target.value)}
+                    placeholder="Academia Oficial & Plataforma de Baile"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Título Principal Landing (Hero):</label>
+                  <input
+                    type="text"
+                    value={cfgHeroTitle}
+                    onChange={(e) => setCfgHeroTitle(e.target.value)}
+                    placeholder="Aprende a Bailar Salsa, Bachata y Más"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-bold outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Subtítulo Explicativo Landing:</label>
+                  <textarea
+                    rows={3}
+                    value={cfgHeroSubtitle}
+                    onChange={(e) => setCfgHeroSubtitle(e.target.value)}
+                    placeholder="Formación pedagógica estructurada, temarios graduales y la mejor experiencia social de baile."
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Assets & Links */}
+              <div className="space-y-4 p-5 rounded-2xl bg-slate-950 border border-slate-800">
+                <h4 className="font-bold text-sm text-indigo-400 border-b border-slate-800 pb-2">Logos, PWA & Redes Social</h4>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">URL del Logo Oficial:</label>
+                  <input
+                    type="url"
+                    value={cfgLogoUrl}
+                    onChange={(e) => setCfgLogoUrl(e.target.value)}
+                    placeholder="https://ejemplo.com/logo.png"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">URL Favicon / Icono App PWA:</label>
+                  <input
+                    type="url"
+                    value={cfgFaviconUrl}
+                    onChange={(e) => setCfgFaviconUrl(e.target.value)}
+                    placeholder="https://ejemplo.com/icon-512.png"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Nombre PWA Instalable:</label>
+                  <input
+                    type="text"
+                    value={cfgPwaName}
+                    onChange={(e) => setCfgPwaName(e.target.value)}
+                    placeholder="DanceXP App"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">WhatsApp / Teléfono:</label>
+                    <input
+                      type="text"
+                      value={cfgPhone}
+                      onChange={(e) => setCfgPhone(e.target.value)}
+                      placeholder="+34 600 000 000"
+                      className="w-full p-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">Email de Contacto:</label>
+                    <input
+                      type="email"
+                      value={cfgEmail}
+                      onChange={(e) => setCfgEmail(e.target.value)}
+                      placeholder="info@dancexp.app"
+                      className="w-full p-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">Instagram URL:</label>
+                    <input
+                      type="url"
+                      value={cfgInstagram}
+                      onChange={(e) => setCfgInstagram(e.target.value)}
+                      placeholder="https://instagram.com/..."
+                      className="w-full p-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">YouTube URL:</label>
+                    <input
+                      type="url"
+                      value={cfgYoutube}
+                      onChange={(e) => setCfgYoutube(e.target.value)}
+                      placeholder="https://youtube.com/..."
+                      className="w-full p-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs md:text-sm shadow-glow-violet transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4.5 h-4.5" /> Guardar Configuración Web Global
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

@@ -11,7 +11,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
-  const { currentSchool, schools, setSchoolById, currentUser, profiles, notifications, logoutUser } = useApp();
+  const { currentSchool, schools, setSchoolById, currentUser, profiles, notifications, logoutUser, webConfig } = useApp();
   const [isSchoolMenuOpen, setIsSchoolMenuOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
@@ -26,17 +26,25 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
     <>
       <header className="sticky top-0 z-40 bg-[#0B0F17]/95 backdrop-blur-xl border-b border-slate-800/80 px-4 py-3 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Logo */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 via-rose-500 to-amber-400 flex items-center justify-center shadow-glow-violet scale-95 hover:scale-100 transition-all cursor-pointer">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
+          {/* Logo & Branding */}
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActiveTab && setActiveTab('home')}>
+            {webConfig.logo_url ? (
+              <img
+                src={webConfig.logo_url}
+                alt={webConfig.app_name}
+                className="w-10 h-10 rounded-2xl object-cover border border-purple-500/40 shadow-glow-violet scale-95 hover:scale-100 transition-all"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 via-rose-500 to-amber-400 flex items-center justify-center shadow-glow-violet scale-95 hover:scale-100 transition-all">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+            )}
             <div>
               <h1 className="font-black text-xl text-white leading-none tracking-tight">
-                Dance<span className="text-purple-400">XP</span>
+                {webConfig.app_name || 'DanceXP'}
               </h1>
               <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase block mt-0.5">
-                Plataforma Pedagógica
+                {webConfig.tagline || 'Plataforma Pedagógica'}
               </span>
             </div>
           </div>

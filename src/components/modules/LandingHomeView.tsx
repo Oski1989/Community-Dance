@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Sparkles, BookOpen, Video, PartyPopper, Users, Award, ChevronRight, Calendar, MapPin, Clock, Info, LogIn, UserPlus } from 'lucide-react';
+import { Sparkles, BookOpen, PartyPopper, Users, Award, ChevronRight, LogIn, UserPlus, Heart, CheckCircle2, ChevronLeft, ArrowRight } from 'lucide-react';
 import { AuthModal } from '@/components/modules/AuthModal';
 
 export const LandingHomeView: React.FC = () => {
-  const { currentSchool, disciplines, classes, weeklySocials, currentUser } = useApp();
+  const { currentSchool, currentUser, webConfig } = useApp();
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('register');
-  const [selectedDayFilter, setSelectedDayFilter] = useState<string>('current_week');
+  const [activeSlide, setActiveSlide] = useState<number>(0);
 
   const isGuest = currentUser.id.startsWith('guest');
 
@@ -18,43 +18,70 @@ export const LandingHomeView: React.FC = () => {
     setIsAuthOpen(true);
   };
 
-  // Filter weekly socials for the current week or selected day
-  const filteredSocials = weeklySocials.filter((social) => {
-    if (selectedDayFilter === 'current_week') return true;
-    return social.day_of_week.toLowerCase().includes(selectedDayFilter.toLowerCase());
-  });
+  // Lifestyle Carousel Items
+  const carouselItems = [
+    {
+      id: 'slide-1',
+      title: 'Ambiente Social & Fiestas SBK',
+      subtitle: 'Practica lo aprendido en un ambiente inclusivo con la mejor comunidad de baile.',
+      image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop&q=80',
+      tag: 'Sociales Semanales',
+    },
+    {
+      id: 'slide-2',
+      title: 'Temarios Graduales por Niveles',
+      subtitle: 'Aprende paso a paso con programas diseñados para que avances sin vacíos.',
+      image: 'https://images.unsplash.com/photo-1545128485-c400e7702796?w=800&auto=format&fit=crop&q=80',
+      tag: 'Formación de Calidad',
+    },
+    {
+      id: 'slide-3',
+      title: 'Profesores Certificados & Comunidad',
+      subtitle: 'Conecta con otros bailarines, encuentra tu pareja de baile y diviértete en cada clase.',
+      image: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&auto=format&fit=crop&q=80',
+      tag: 'Comunidad Unida',
+    },
+  ];
+
+  const nextSlide = () => {
+    setActiveSlide((prev) => (prev + 1) % carouselItems.length);
+  };
+
+  const prevSlide = () => {
+    setActiveSlide((prev) => (prev - 1 + carouselItems.length) % carouselItems.length);
+  };
 
   return (
-    <div className="space-y-8 pb-16">
+    <div className="space-y-10 pb-16 max-w-5xl mx-auto">
       {/* Hero Welcome Banner */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-tr from-purple-950 via-slate-900 to-indigo-950 border border-purple-500/30 p-6 md:p-10 shadow-2xl">
-        <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-tr from-purple-950 via-slate-900 to-indigo-950 border border-purple-500/30 p-6 md:p-12 shadow-2xl">
+        <div className="absolute -right-10 -bottom-10 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
         
-        <div className="relative z-10 space-y-4 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold">
-            <Sparkles className="w-4 h-4 text-amber-400" /> Plataforma Pedagógica y Social de Baile
+        <div className="relative z-10 space-y-5 max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold">
+            <Sparkles className="w-4 h-4 text-amber-400" /> {webConfig.tagline || 'Academia Oficial & Plataforma de Baile'}
           </div>
 
           <h1 className="text-3xl md:text-5xl font-black text-white leading-tight tracking-tight">
-            Aprende a Bailar con <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-rose-400 to-amber-300">DanceXP</span>
+            {webConfig.hero_title || 'Aprende a Bailar Salsa, Bachata y Más'}
           </h1>
 
-          <p className="text-sm md:text-base text-slate-300 leading-relaxed">
-            Bienvenido a la comunidad oficial de baile de <strong className="text-white">{currentSchool.name}</strong>. Accede a tu itinerario por niveles, envía tus vídeos para corrección asíncrona y participa en nuestros sociales semanales para acumular Puntos de Ritmo.
+          <p className="text-sm md:text-base text-slate-300 leading-relaxed max-w-2xl">
+            {webConfig.hero_subtitle || 'Disfruta de la mejor experiencia de aprendizaje con temarios graduales, profesores certificados y la comunidad de baile social más activa.'}
           </p>
 
           {isGuest && (
-            <div className="flex flex-wrap items-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-3 pt-3">
               <button
                 onClick={() => handleOpenAuth('register')}
-                className="px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs md:text-sm shadow-glow-violet transition-all flex items-center gap-2 cursor-pointer"
+                className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs md:text-sm shadow-glow-violet transition-all flex items-center gap-2 cursor-pointer scale-100 hover:scale-105"
               >
                 <UserPlus className="w-4.5 h-4.5" /> Registrarme como Alumno
               </button>
 
               <button
                 onClick={() => handleOpenAuth('login')}
-                className="px-5 py-3 rounded-2xl bg-slate-950/80 border border-slate-700 hover:border-slate-500 text-white font-bold text-xs md:text-sm transition-all flex items-center gap-2 cursor-pointer"
+                className="px-6 py-3.5 rounded-2xl bg-slate-950/80 border border-slate-700 hover:border-slate-500 text-white font-bold text-xs md:text-sm transition-all flex items-center gap-2 cursor-pointer"
               >
                 <LogIn className="w-4.5 h-4.5 text-purple-400" /> Iniciar Sesión
               </button>
@@ -63,184 +90,136 @@ export const LandingHomeView: React.FC = () => {
         </div>
       </div>
 
-      {/* Pillars & Features Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2 hover:border-purple-500/40 transition-all">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400">
-            <BookOpen className="w-5 h-5" />
-          </div>
-          <h3 className="font-extrabold text-base text-white">Niveles & Temarios</h3>
-          <p className="text-xs text-slate-400">
-            Itinerario técnico estructurado módulo a módulo para garantizar una progresión real sin lagunas.
+      {/* "¿Por qué bailar con nosotros?" Section */}
+      <div className="space-y-6">
+        <div className="text-center space-y-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-purple-400 bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-full inline-block">
+            Beneficios Exclusivos
+          </span>
+          <h2 className="text-2xl md:text-3xl font-black text-white">
+            ¿Por qué aprender en <span className="text-purple-400">{webConfig.app_name || 'DanceXP'}</span>?
+          </h2>
+          <p className="text-xs md:text-sm text-slate-400 max-w-xl mx-auto">
+            Metodología diseñada para que disfrutes desde tu primera clase y te sientas seguro en la pista de baile.
           </p>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2 hover:border-purple-500/40 transition-all">
-          <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
-            <Video className="w-5 h-5" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-3 hover:border-purple-500/40 transition-all shadow-lg group">
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <h3 className="font-black text-lg text-white">Temarios Graduales</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Paso a paso estructurado desde nivel cero hasta avanzado para que tengas una base sólida sin huecos técnicos.
+            </p>
           </div>
-          <h3 className="font-extrabold text-base text-white">Inbox Zero de Vídeo</h3>
-          <p className="text-xs text-slate-400">
-            Sube tus ejecuciones técnicas y recibe correcciones detalladas con audio y marcas en pantalla por tus profesores.
-          </p>
-        </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2 hover:border-purple-500/40 transition-all">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-            <PartyPopper className="w-5 h-5" />
+          <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-3 hover:border-rose-500/40 transition-all shadow-lg group">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
+              <Users className="w-6 h-6" />
+            </div>
+            <h3 className="font-black text-lg text-white">Profesores Certificados</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Aprende con instructores experimentados y apasionados dedicados a enseñarte ritmo, musicalidad y estilo.
+            </p>
           </div>
-          <h3 className="font-extrabold text-base text-white">Sociales & Puntos</h3>
-          <p className="text-xs text-slate-400">
-            Escanea tu código QR en las fiestas semanales, sube tu racha y canjea consumiciones gratis en la barra.
-          </p>
+
+          <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-3 hover:border-emerald-500/40 transition-all shadow-lg group">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+              <PartyPopper className="w-6 h-6" />
+            </div>
+            <h3 className="font-black text-lg text-white">Comunidad & Sociales</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Forma parte de la comunidad de baile social, asiste a las fiestas semanales y practica lo aprendido bailando.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Courses & Teachers Section (Dynamic with Empty State) */}
+      {/* Carrusel de Publicaciones y Experiencia */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-black text-white flex items-center gap-2">
-              <Users className="w-5 h-5 text-purple-400" /> Cursos & Profesores Impartidos
-            </h2>
-            <p className="text-xs text-slate-400">Oferta formativa y disciplinas activas de la escuela</p>
+            <h3 className="text-xl font-black text-white flex items-center gap-2">
+              <Heart className="w-5 h-5 text-rose-400" /> La Experiencia de Baile
+            </h3>
+            <p className="text-xs text-slate-400">Momentos y ambiente social en nuestra academia</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={prevSlide}
+              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={nextSlide}
+              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {disciplines.length === 0 && classes.length === 0 ? (
-          <div className="p-8 rounded-3xl bg-slate-950 border border-slate-800 text-center space-y-3 shadow-inner">
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mx-auto text-purple-400">
-              <Info className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-extrabold text-white">No hay cursos ni profesores publicados todavía</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-              El equipo de administración y profesores está configurando las listas oficiales de clases y disciplinas. ¡Crea tu cuenta de alumno para recibir las novedades al instante!
+        {/* Interactive Slider */}
+        <div className="relative rounded-3xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl h-80">
+          <img
+            src={carouselItems[activeSlide].image}
+            alt={carouselItems[activeSlide].title}
+            className="w-full h-full object-cover transition-all duration-500"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+
+          <div className="absolute bottom-6 left-6 right-6 space-y-2 z-10">
+            <span className="px-3 py-1 rounded-full bg-purple-600 text-white font-black text-[11px] uppercase tracking-wider inline-block">
+              {carouselItems[activeSlide].tag}
+            </span>
+            <h4 className="text-2xl font-black text-white">
+              {carouselItems[activeSlide].title}
+            </h4>
+            <p className="text-xs md:text-sm text-slate-200 max-w-xl">
+              {carouselItems[activeSlide].subtitle}
             </p>
-            {isGuest && (
+          </div>
+
+          {/* Dots Indicator */}
+          <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+            {carouselItems.map((_, idx) => (
               <button
-                onClick={() => handleOpenAuth('register')}
-                className="mt-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-glow-violet transition-all inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <UserPlus className="w-4 h-4" /> Registrarse como Alumno
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {disciplines.map((disc) => (
-              <div key={disc.id} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  {disc.style_tag || 'Disciplina'}
-                </span>
-                <h4 className="font-extrabold text-base text-white">{disc.name}</h4>
-                <p className="text-xs text-slate-400 line-clamp-2">{disc.description}</p>
-              </div>
+                key={idx}
+                onClick={() => setActiveSlide(idx)}
+                className={`w-2.5 h-2.5 rounded-full transition-all cursor-pointer ${
+                  idx === activeSlide ? 'bg-purple-400 w-6' : 'bg-white/40'
+                }`}
+              />
             ))}
-          </div>
-        )}
-      </div>
-
-      {/* Weekly Socials Section (Predeterminada Semana Actual) */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-black text-white flex items-center gap-2">
-              <PartyPopper className="w-5 h-5 text-emerald-400" /> Sociales de la Semana Actual
-            </h2>
-            <p className="text-xs text-slate-400">Eventos de baile social en {currentSchool.venue_name || currentSchool.name}</p>
-          </div>
-
-          {/* Date / Day Filter Tabs */}
-          <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 overflow-x-auto">
-            <button
-              onClick={() => setSelectedDayFilter('current_week')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                selectedDayFilter === 'current_week'
-                  ? 'bg-emerald-600 text-slate-950 font-black shadow-glow-emerald'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Semana Actual
-            </button>
-            <button
-              onClick={() => setSelectedDayFilter('Viernes')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                selectedDayFilter === 'Viernes'
-                  ? 'bg-emerald-600 text-slate-950 font-black shadow-glow-emerald'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Viernes
-            </button>
-            <button
-              onClick={() => setSelectedDayFilter('Sábado')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                selectedDayFilter === 'Sábado'
-                  ? 'bg-emerald-600 text-slate-950 font-black shadow-glow-emerald'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Sábados
-            </button>
-            <button
-              onClick={() => setSelectedDayFilter('Domingo')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                selectedDayFilter === 'Domingo'
-                  ? 'bg-emerald-600 text-slate-950 font-black shadow-glow-emerald'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Domingos
-            </button>
           </div>
         </div>
-
-        {filteredSocials.length === 0 ? (
-          <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 text-center text-xs text-slate-400">
-            No hay sociales programados para esta selección.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredSocials.map((social) => (
-              <div
-                key={social.id}
-                className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-xl"
-              >
-                {social.banner_url && (
-                  <div className="h-40 overflow-hidden relative">
-                    <img src={social.banner_url} alt={social.title} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
-                    <span className="absolute top-3 right-3 px-3 py-1 rounded-full bg-emerald-500 text-slate-950 font-black text-xs shadow-lg">
-                      {social.day_of_week}
-                    </span>
-                  </div>
-                )}
-
-                <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
-                  <div className="space-y-1.5">
-                    <h3 className="font-black text-lg text-white leading-snug">{social.title}</h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">{social.description}</p>
-                  </div>
-
-                  <div className="space-y-1 pt-2 border-t border-slate-800 text-xs text-slate-400">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>{social.time}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>{social.location}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
+
+      {/* Call To Action Banner */}
+      {isGuest && (
+        <div className="p-8 rounded-3xl bg-gradient-to-r from-purple-900/60 via-indigo-900/60 to-slate-900 border border-purple-500/30 text-center space-y-4 shadow-2xl">
+          <h3 className="text-2xl font-black text-white">
+            ¿Listo para dar tu primer paso en la pista?
+          </h3>
+          <p className="text-xs md:text-sm text-slate-300 max-w-md mx-auto">
+            Crea tu cuenta de alumno en segundos y comienza tu viaje en Salsa, Bachata y ritmos sociales.
+          </p>
+          <button
+            onClick={() => handleOpenAuth('register')}
+            className="px-8 py-3.5 rounded-2xl bg-white text-slate-950 hover:bg-slate-100 font-black text-xs md:text-sm shadow-xl transition-all inline-flex items-center gap-2 cursor-pointer scale-100 hover:scale-105"
+          >
+            Crear Mi Cuenta Ahora <ArrowRight className="w-4 h-4 text-purple-600" />
+          </button>
+        </div>
+      )}
 
       {/* Auth Modal Trigger */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </div>
   );
 };
+

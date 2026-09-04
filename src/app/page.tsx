@@ -15,6 +15,7 @@ import { AdminDashboardView } from '@/components/modules/AdminDashboardView';
 import { TeacherSyllabusView } from '@/components/modules/TeacherSyllabusView';
 import { SchoolDashboardView } from '@/components/modules/SchoolDashboardView';
 import { LandingHomeView } from '@/components/modules/LandingHomeView';
+import { PublicCoursesView } from '@/components/modules/PublicCoursesView';
 import { useApp } from '@/context/AppContext';
 
 export default function Home() {
@@ -35,12 +36,12 @@ export default function Home() {
 
   // Sync activeTab if currentUser role changes
   React.useEffect(() => {
-    if (isGuest && activeTab !== 'social') {
+    if (isGuest && activeTab !== 'social' && activeTab !== 'courses') {
       setActiveTab('home');
     } else if (currentUser.role === 'admin' && activeTab === 'profile') {
       setActiveTab('admin');
     } else if (currentUser.role === 'school') {
-      if (activeTab !== 'school_panel' && activeTab !== 'management' && activeTab !== 'home') {
+      if (activeTab !== 'school_panel' && activeTab !== 'management' && activeTab !== 'home' && activeTab !== 'courses') {
         setActiveTab('school_panel');
       }
     } else if (currentUser.role === 'teacher' && (activeTab === 'profile' || activeTab === 'levels')) {
@@ -77,6 +78,7 @@ export default function Home() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 pb-28">
         {activeTab === 'home' && <LandingHomeView />}
+        {activeTab === 'courses' && <PublicCoursesView />}
         {activeTab === 'profile' && (
           <StudentProfileView onNavigateToLevels={() => setActiveTab('levels')} />
         )}

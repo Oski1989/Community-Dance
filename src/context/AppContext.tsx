@@ -17,6 +17,7 @@ import {
   Role,
   MembershipStatus,
   WeeklySocial,
+  WebConfig,
 } from '@/types/database';
 import {
   INITIAL_PROFILES,
@@ -57,6 +58,8 @@ interface AppContextType {
   rewards: Reward[];
   redemptions: Redemption[];
   flashProps: FlashProp[];
+  webConfig: WebConfig;
+  updateWebConfig: (updates: Partial<WebConfig>) => void;
 
   // Points & Streaks
   studentXP: number;
@@ -213,6 +216,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [rewards, setRewards] = useState<Reward[]>(INITIAL_REWARDS);
   const [redemptions, setRedemptions] = useState<Redemption[]>(INITIAL_REDEMPTIONS);
   const [flashProps, setFlashProps] = useState<FlashProp[]>(INITIAL_FLASH_PROPS);
+
+  const [webConfig, setWebConfig] = useState<WebConfig>(() => {
+    if (typeof window !== 'undefined') {
+      const savedConfig = localStorage.getItem('dancexp_web_config');
+      if (savedConfig) {
+        try {
+          return JSON.parse(savedConfig);
+        } catch (e) {}
+      }
+    }
+    return {
+      app_name: 'DanceXP',
+      tagline: 'Academia Oficial & Plataforma de Baile',
+      hero_title: 'Aprende a Bailar Salsa, Bachata y Más',
+      hero_subtitle: 'Formación pedagógica estructurada, temarios graduales y la mejor experiencia social de baile.',
+      logo_url: '',
+      favicon_url: '',
+      pwa_app_name: 'DanceXP WebApp',
+      contact_phone: '+34 600 000 000',
+      contact_email: 'info@dancexp.app',
+      instagram_url: 'https://instagram.com',
+      youtube_url: 'https://youtube.com',
+    };
+  });
+
+  const updateWebConfig = (updates: Partial<WebConfig>) => {
+    setWebConfig((prev) => {
+      const newConfig = { ...prev, ...updates };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('dancexp_web_config', JSON.stringify(newConfig));
+      }
+      return newConfig;
+    });
+    addNotification('Configuración Web Guardada ⚙️', 'Los títulos, logos y ajustes de la web han sido actualizados.', 'info');
+  };
   const [weeklySocials, setWeeklySocials] = useState<WeeklySocial[]>([
     {
       id: 'ws-1',
@@ -1426,6 +1464,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rewards,
         redemptions,
         flashProps,
+        webConfig,
+        updateWebConfig,
         studentXP,
         studentRhythmPoints,
         victoryStreakWeeks,

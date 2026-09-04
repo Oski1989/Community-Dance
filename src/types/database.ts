@@ -104,6 +104,20 @@ export interface Discipline {
   linked_school_ids?: string[];
 }
 
+export interface WebConfig {
+  app_name: string;
+  tagline: string;
+  hero_title: string;
+  hero_subtitle: string;
+  logo_url?: string;
+  favicon_url?: string;
+  pwa_app_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  instagram_url?: string;
+  youtube_url?: string;
+}
+
 export interface WeeklySocial {
   id: string;
   school_id: string;

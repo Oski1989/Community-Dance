@@ -2,7 +2,7 @@ import React from 'react';
 import { useApp } from '@/context/AppContext';
 import { User, Award, Video, PartyPopper, Users, Settings, ShieldCheck, DollarSign, BookOpen, Building2, Sparkles } from 'lucide-react';
 
-export type TabType = 'home' | 'profile' | 'levels' | 'videos' | 'social' | 'flash' | 'management' | 'syllabus' | 'finance' | 'config' | 'admin' | 'school_panel';
+export type TabType = 'home' | 'courses' | 'profile' | 'levels' | 'videos' | 'social' | 'flash' | 'management' | 'syllabus' | 'finance' | 'config' | 'admin' | 'school_panel';
 
 interface BottomNavProps {
   activeTab: TabType;
@@ -25,7 +25,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
           <>
             <button
               onClick={() => setActiveTab('home')}
-              className={`flex flex-col items-center gap-1 px-4 py-1.5 rounded-2xl text-xs font-bold transition-all ${
+              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-2xl text-xs font-bold transition-all ${
                 activeTab === 'home'
                   ? 'text-purple-400 bg-purple-500/10 border border-purple-500/30'
                   : 'text-slate-400 hover:text-slate-200'
@@ -35,17 +35,29 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
               <span className="text-[10px]">Conócenos</span>
             </button>
 
+            <button
+              onClick={() => setActiveTab('courses')}
+              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-2xl text-xs font-bold transition-all ${
+                activeTab === 'courses'
+                  ? 'text-blue-400 bg-blue-500/10 border border-blue-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <BookOpen className="w-5 h-5" />
+              <span className="text-[10px]">Cursos</span>
+            </button>
+
             {currentSchool.has_social_engine && (
               <button
                 onClick={() => setActiveTab('social')}
-                className={`flex flex-col items-center gap-1 px-4 py-1.5 rounded-2xl text-xs font-bold transition-all ${
+                className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-2xl text-xs font-bold transition-all ${
                   activeTab === 'social'
                     ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <PartyPopper className="w-5 h-5" />
-                <span className="text-[10px]">Sociales</span>
+                <span className="text-[10px]">Sociales & Eventos</span>
               </button>
             )}
           </>
@@ -54,7 +66,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
             {/* Home / Conócenos Tab for Logged In Users */}
             <button
               onClick={() => setActiveTab('home')}
-              className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl text-xs font-bold transition-all ${
+              className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-2xl text-xs font-bold transition-all ${
                 activeTab === 'home'
                   ? 'text-purple-400 bg-purple-500/10 border border-purple-500/30'
                   : 'text-slate-400 hover:text-slate-200'
