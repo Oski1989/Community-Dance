@@ -150,20 +150,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Status Indicator */}
-        <div className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-[11px]">
-          <span className="text-slate-400 font-medium">Modo de Base de Datos:</span>
-          {isSupabaseConfigured() ? (
-            <span className="text-emerald-400 font-bold flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Supabase Real Conectado
-            </span>
-          ) : (
-            <span className="text-amber-400 font-bold flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-400" /> Simulación Local (Mock)
-            </span>
-          )}
-        </div>
-
         {errorMessage && (
           <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -308,65 +294,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <LogIn className="w-4 h-4" /> {isLoading ? 'Ingresando...' : 'Iniciar Sesión'}
               </button>
             </form>
-
-            {/* Quick Demo Selector (Only in Local Mock Mode) */}
-            {!isSupabaseConfigured() && (
-              <div className="border-t border-slate-800 pt-4 space-y-2">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Simulación Rápida de Usuarios / Roles:
-                </span>
-                <div className="space-y-1.5">
-                  {profiles.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        setCurrentUserById(p.id);
-                        onClose();
-                      }}
-                      className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all flex items-center justify-between ${
-                        currentUser.id === p.id
-                          ? 'bg-purple-950/60 border-purple-500 text-white'
-                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <img src={p.avatar_url} alt={p.full_name} className="w-7 h-7 rounded-full object-cover" />
-                        <div>
-                          <span className="font-bold block text-white">{p.full_name}</span>
-                          <span className="text-[10px] text-slate-400">{p.email}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                            p.role === 'admin'
-                              ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                              : p.role === 'teacher'
-                              ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                              : 'bg-slate-800 text-slate-400 border-slate-700'
-                          }`}
-                        >
-                          {p.role}
-                        </span>
-
-                        <span
-                          className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                            p.membership_status === 'active'
-                              ? 'bg-emerald-500/20 text-emerald-300'
-                              : p.membership_status === 'pending_approval'
-                              ? 'bg-amber-500/20 text-amber-300'
-                              : 'bg-rose-500/20 text-rose-300'
-                          }`}
-                        >
-                          {p.membership_status}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </motion.div>
