@@ -280,10 +280,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Student Gamification stats
-  const [studentXP, setStudentXP] = useState<number>(380);
-  const [studentRhythmPoints, setStudentRhythmPoints] = useState<number>(450);
-  const [victoryStreakWeeks, setVictoryStreakWeeks] = useState<number>(4);
+  // Student Gamification stats (defaults to 0 for real production users)
+  const [studentXP, setStudentXP] = useState<number>(currentUser?.xp ?? 0);
+  const [studentRhythmPoints, setStudentRhythmPoints] = useState<number>(currentUser?.rhythm_points ?? 0);
+  const [victoryStreakWeeks, setVictoryStreakWeeks] = useState<number>(currentUser?.victory_streak_weeks ?? 0);
+
+  // Synchronize gamification stats whenever currentUser changes
+  useEffect(() => {
+    setStudentXP(currentUser?.xp ?? 0);
+    setStudentRhythmPoints(currentUser?.rhythm_points ?? 0);
+    setVictoryStreakWeeks(currentUser?.victory_streak_weeks ?? 0);
+  }, [currentUser?.id, currentUser?.xp, currentUser?.rhythm_points, currentUser?.victory_streak_weeks]);
 
   // Toast Notifications
   const [notifications, setNotifications] = useState<NotificationToast[]>([]);

@@ -174,7 +174,11 @@ export const VictorysSocialEngine: React.FC = () => {
               <span>Multiplicador por Racha Consecutiva</span>
             </div>
             <p className="text-xs text-slate-300">
-              Llevas <strong className="text-orange-400">{victoryStreakWeeks} semanas consecutivas</strong> asistiendo. Tu multiplicador de Puntos de Ritmo es de <strong>+50%</strong>.
+              {victoryStreakWeeks > 0 ? (
+                <>Llevas <strong className="text-orange-400">{victoryStreakWeeks} semanas consecutivas</strong> asistiendo. Tu multiplicador de Puntos de Ritmo es de <strong>+50%</strong>.</>
+              ) : (
+                <>Aún no has iniciado tu racha semanal. ¡Haz Check-In GPS en la fiesta para comenzar!</>
+              )}
             </p>
 
             <div className="w-full bg-slate-950 rounded-full h-3 border border-slate-800 overflow-hidden">

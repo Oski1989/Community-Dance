@@ -80,7 +80,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({ onNaviga
   // Enrolled discipline IDs for student
   const enrolledIds = currentUser.enrolled_discipline_ids && currentUser.enrolled_discipline_ids.length > 0
     ? currentUser.enrolled_discipline_ids
-    : ['disc-salsa-linea'];
+    : [];
 
   const enrolledDisciplines = disciplines.filter((d) => enrolledIds.includes(d.id));
 
@@ -89,30 +89,17 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({ onNaviga
 
   const isPublicInRankings = currentUser.is_public_in_rankings !== false;
 
-  // Filter leaderboard students who allowed ranking visibility (or self)
-  const studentLeaderboard = [
-    {
-      name: 'Laura Martinez',
-      xp: 520,
-      rhythm: 620,
-      streak: 6,
-      avatar: INITIAL_PROFILES[3]?.avatar_url || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
-    },
-    {
-      name: `${currentUser.full_name} (Tú)`,
-      xp: studentXP,
-      rhythm: studentRhythmPoints,
-      streak: victoryStreakWeeks,
-      avatar: currentUser?.avatar_url || '',
-    },
-    {
-      name: 'Carlos Ruiz',
-      xp: 210,
-      rhythm: 180,
-      streak: 2,
-      avatar: INITIAL_PROFILES[4]?.avatar_url || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-    },
-  ].sort((a, b) => (leaderboardTab === 'technical' ? b.xp - a.xp : b.rhythm - a.rhythm));
+  // Filter leaderboard from real student profiles registered in the system
+  const studentLeaderboard = profiles
+    .filter((p) => p.role === 'student' && p.membership_status === 'active')
+    .map((p) => ({
+      name: p.id === currentUser.id ? `${p.full_name} (Tú)` : p.full_name,
+      xp: p.id === currentUser.id ? studentXP : (p.xp || 0),
+      rhythm: p.id === currentUser.id ? studentRhythmPoints : (p.rhythm_points || 0),
+      streak: p.id === currentUser.id ? victoryStreakWeeks : (p.victory_streak_weeks || 0),
+      avatar: p.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    }))
+    .sort((a, b) => (leaderboardTab === 'technical' ? b.xp - a.xp : b.rhythm - a.rhythm));
 
   const handleEnrollmentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
