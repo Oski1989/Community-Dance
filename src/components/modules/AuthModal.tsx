@@ -19,6 +19,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [fullName, setFullName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [discipline, setDiscipline] = useState<string>('Salsa en Línea');
   const [customDiscipline, setCustomDiscipline] = useState<string>('');
@@ -33,17 +34,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !email) return;
     setErrorMessage(null);
-    setIsLoading(true);
 
+    if (!fullName.trim() || !email.trim()) {
+      setErrorMessage('Por favor completa tu nombre y correo electrónico.');
+      return;
+    }
+
+    if (!password) {
+      setErrorMessage('Por favor ingresa una contraseña.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMessage('Las contraseñas no coinciden. Por favor verifícalas.');
+      return;
+    }
+
+    setIsLoading(true);
     const finalDiscipline = discipline === 'Otro' ? (customDiscipline || 'Otro Ritmo') : discipline;
 
     try {
       if (isSupabaseConfigured()) {
         const { data, error } = await supabase.auth.signUp({
           email,
-          password: password || 'dancexp123',
+          password,
           options: {
             data: {
               full_name: fullName,
@@ -55,20 +75,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         });
 
         if (error) {
-          setErrorMessage(error.message);
+          setErrorMessage(error.message === 'User already registered' ? 'El correo ya se encuentra registrado.' : error.message);
           setIsLoading(false);
           return;
         }
 
         const signUpUserId = data?.user?.id;
 
+        // Upsert explicitly to profiles table in Supabase DB
+        if (signUpUserId) {
+          await supabase.from('profiles').upsert({
+            id: signUpUserId,
+            full_name: fullName,
+            email: email.toLowerCase(),
+            role: 'student',
+            membership_status: 'inactive',
+            phone: phone || '',
+            discipline_preference: finalDiscipline,
+            xp: 0,
+            rhythm_points: 0,
+            victory_streak_weeks: 0,
+          });
+        }
+
         addNotification(
-          'Registro Exitoso en Supabase 🎉',
-          'Tu cuenta fue creada en la base de datos real. Puedes adjuntar tu recibo para solicitar la activación.',
+          'Registro Exitoso 🎉',
+          'Tu cuenta fue creada correctamente en la base de datos.',
           'info'
         );
 
-        // Sync local context state with exact Supabase User ID
+        // Sync local context state & localStorage with exact Supabase User ID
         registerUser(fullName, email, phone, finalDiscipline, signUpUserId);
       } else {
         registerUser(fullName, email, phone, finalDiscipline);
@@ -204,18 +240,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-300 block">Contraseña (*):</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
-                />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300 block">Contraseña (*):</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    placeholder="Mínimo 6 caracteres"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300 block">Confirmar Contraseña (*):</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    placeholder="Repite tu contraseña"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                  />
+                </div>
               </div>
             </div>
 

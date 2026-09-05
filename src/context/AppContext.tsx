@@ -177,7 +177,20 @@ const GUEST_PROFILE: Profile = {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [profiles, setProfiles] = useState<Profile[]>(INITIAL_PROFILES);
+  const [profiles, setProfiles] = useState<Profile[]>(() => {
+    if (typeof window !== 'undefined') {
+      const savedProfiles = localStorage.getItem('dancexp_all_profiles_data');
+      if (savedProfiles) {
+        try {
+          const parsed = JSON.parse(savedProfiles);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        } catch (e) {}
+      }
+    }
+    return INITIAL_PROFILES;
+  });
   
   // Persisted current active user state
   const [currentUser, setCurrentUser] = useState<Profile>(() => {
@@ -538,7 +551,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newProfile: Profile = {
       id: idToUse,
       full_name: fullName,
-      email,
+      email: email.toLowerCase(),
       role: 'student',
       membership_status: 'inactive', // Default inactive upon registration!
       phone,
@@ -551,11 +564,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setProfiles((prev) => {
       const exists = prev.some((p) => p.id === idToUse || p.email.toLowerCase() === email.toLowerCase());
-      if (exists) {
-        return prev.map((p) => (p.id === idToUse || p.email.toLowerCase() === email.toLowerCase() ? { ...p, ...newProfile } : p));
+      const updated = exists
+        ? prev.map((p) => (p.id === idToUse || p.email.toLowerCase() === email.toLowerCase() ? { ...p, ...newProfile } : p))
+        : [...prev, newProfile];
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('dancexp_all_profiles_data', JSON.stringify(updated));
       }
-      return [...prev, newProfile];
+      return updated;
     });
+
     updateCurrentUserState(newProfile);
 
     if (isSupabaseConfigured()) {
@@ -564,7 +582,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     addNotification(
       'Registro Exitoso 🎉',
-      'Tu cuenta de alumno ha sido creada. Estado: Inactivo. Adjunta tu comprobante Bizum para solicitar activación.',
+      'Tu cuenta de alumno ha sido creada correctamente.',
       'info'
     );
   };
