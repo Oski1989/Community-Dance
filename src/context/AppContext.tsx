@@ -323,32 +323,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const fetchSupabaseData = async () => {
       try {
         const { data: dbProfiles } = await supabase.from('profiles').select('*');
-        if (dbProfiles && dbProfiles.length > 0) {
-          const profilesList = dbProfiles as Profile[];
-          setProfiles((prev) => {
-            const merged = [...profilesList];
-            prev.forEach((p) => {
-              if (!merged.some((m) => m.id === p.id || m.email.toLowerCase() === p.email.toLowerCase())) {
-                merged.push(p);
-              }
-            });
-            return merged;
-          });
-
-          // Restore current active user from latest profiles list
-          if (typeof window !== 'undefined') {
-            const savedUser = localStorage.getItem('dancexp_active_user_data');
-            if (savedUser) {
-              try {
-                const parsed = JSON.parse(savedUser);
-                const matched = profilesList.find(
-                  (p) => p.id === parsed.id || p.email.toLowerCase() === parsed.email?.toLowerCase()
-                );
-                if (matched) {
-                  updateCurrentUserState(matched);
-                }
-              } catch (e) {}
+        setProfiles((prev) => {
+          const profilesList = (dbProfiles || []) as Profile[];
+          const merged = [...profilesList];
+          prev.forEach((p) => {
+            if (!merged.some((m) => m.id === p.id || m.email.toLowerCase() === p.email.toLowerCase())) {
+              merged.push(p);
             }
+          });
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('dancexp_all_profiles_data', JSON.stringify(merged));
+          }
+          return merged;
+        });
+
+        // Restore current active user from latest merged profiles list
+        if (typeof window !== 'undefined') {
+          const savedUser = localStorage.getItem('dancexp_active_user_data');
+          if (savedUser) {
+            try {
+              const parsed = JSON.parse(savedUser);
+              if (parsed && parsed.id) {
+                updateCurrentUserState(parsed);
+              }
+            } catch (e) {}
           }
         }
 
