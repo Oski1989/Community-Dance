@@ -77,6 +77,7 @@ interface AppContextType {
   setCurrentUserById: (userId: string) => void;
   
   // Auth & Student Membership Management
+  refreshProfiles: () => Promise<void>;
   registerUser: (fullName: string, email: string, phone: string, disciplinePreference: string, userId?: string) => void;
   loginUser: (email: string) => boolean;
   logoutUser: () => void;
@@ -544,6 +545,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Auth & Student Registration
+  const refreshProfiles = async () => {
+    let remoteProfiles: Profile[] = [];
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase.from('profiles').select('*');
+        if (!error && data) {
+          remoteProfiles = data as Profile[];
+        }
+      } catch (err) {
+        console.error('Error loading remote profiles:', err);
+      }
+    }
+
+    let localProfiles: Profile[] = [];
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dancexp_all_profiles_data');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) localProfiles = parsed;
+        } catch (e) {}
+      }
+    }
+
+    setProfiles((prev) => {
+      const merged = [...remoteProfiles];
+      [...localProfiles, ...prev].forEach((p) => {
+        if (!merged.some((m) => m.id === p.id || m.email.toLowerCase() === p.email.toLowerCase())) {
+          merged.push(p);
+        }
+      });
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('dancexp_all_profiles_data', JSON.stringify(merged));
+      }
+
+      if (isSupabaseConfigured()) {
+        merged.forEach((p) => {
+          if (!p.id.startsWith('guest')) {
+            supabase.from('profiles').upsert(p).then();
+          }
+        });
+      }
+
+      return merged;
+    });
+  };
   const registerUser = (fullName: string, email: string, phone: string, disciplinePreference: string, userId?: string) => {
     const idToUse = userId || `user-${Date.now()}`;
     const newProfile: Profile = {
@@ -1491,6 +1539,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         clearNotifications,
         setSchoolById,
         setCurrentUserById,
+        refreshProfiles,
         registerUser,
         loginUser,
         logoutUser,

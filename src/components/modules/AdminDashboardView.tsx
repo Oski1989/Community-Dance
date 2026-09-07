@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Role } from '@/types/database';
 import {
@@ -21,11 +21,13 @@ import {
   Sparkles,
   ExternalLink,
   BookOpen,
+  RefreshCw,
 } from 'lucide-react';
 
 export const AdminDashboardView: React.FC = () => {
   const {
     profiles,
+    refreshProfiles,
     updateUserRole,
     updateStudentStatus,
     schools,
@@ -41,6 +43,17 @@ export const AdminDashboardView: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'overview' | 'teachers' | 'students' | 'schools' | 'finance' | 'web_config'>('overview');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  useEffect(() => {
+    refreshProfiles();
+  }, []);
+
+  const handleManualSync = async () => {
+    setIsRefreshing(true);
+    await refreshProfiles();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   // Web Config Form State
   const [cfgAppName, setCfgAppName] = useState<string>(webConfig.app_name || 'DanceXP');
@@ -212,15 +225,27 @@ export const AdminDashboardView: React.FC = () => {
               <Users className="w-5 h-5 text-indigo-400" /> Listado Global de Usuarios ({profiles.length})
             </h3>
 
-            <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-              <input
-                type="text"
-                placeholder="Buscar por usuario o correo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
-              />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={handleManualSync}
+                disabled={isRefreshing}
+                className="px-3 py-2 bg-indigo-950/60 border border-indigo-500/40 hover:bg-indigo-900 text-indigo-300 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shrink-0"
+                title="Sincronizar y actualizar lista con la base de datos real"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? 'Sincronizando...' : 'Refrescar Cuentas'}</span>
+              </button>
+
+              <div className="relative w-full sm:w-64">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Buscar por usuario o correo..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
             </div>
           </div>
 
