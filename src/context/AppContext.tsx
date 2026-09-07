@@ -375,7 +375,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Listen to Supabase Auth State Changes
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
         const { data: userProfile } = await supabase
           .from('profiles')
           .select('*')
@@ -385,8 +385,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (userProfile) {
           updateCurrentUserState(userProfile as Profile);
         }
-      } else if (event === 'SIGNED_OUT') {
-        updateCurrentUserState(GUEST_PROFILE);
       }
     });
 
