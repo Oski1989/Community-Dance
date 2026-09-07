@@ -10,7 +10,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. PROFILES TABLE (Linked to auth.users)
 -- ------------------------------------------
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY,
   full_name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   role TEXT NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'teacher', 'school', 'admin')),
@@ -71,8 +71,8 @@ CREATE TABLE IF NOT EXISTS public.disciplines (
   name TEXT NOT NULL,
   style_tag TEXT,
   description TEXT,
-  creator_teacher_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  shared_teacher_ids UUID[],
+  creator_teacher_id TEXT REFERENCES public.profiles(id) ON DELETE SET NULL,
+  shared_teacher_ids TEXT[],
   target_audience TEXT,
   recommended_bpm TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS public.level_trees (
 -- ------------------------------------------
 CREATE TABLE IF NOT EXISTS public.submissions (
   id TEXT PRIMARY KEY,
-  student_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  student_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
   node_id TEXT NOT NULL,
   video_url TEXT NOT NULL,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS public.submissions (
 CREATE TABLE IF NOT EXISTS public.classes (
   id TEXT PRIMARY KEY,
   school_id TEXT REFERENCES public.schools(id) ON DELETE CASCADE,
-  teacher_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  teacher_id TEXT REFERENCES public.profiles(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   discipline TEXT NOT NULL,
   schedule TEXT NOT NULL,
@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS public.classes (
 CREATE TABLE IF NOT EXISTS public.quests (
   id TEXT PRIMARY KEY,
   school_id TEXT REFERENCES public.schools(id) ON DELETE CASCADE,
-  creator_teacher_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  creator_teacher_id TEXT REFERENCES public.profiles(id) ON DELETE SET NULL,
   creator_type TEXT DEFAULT 'school' CHECK (creator_type IN ('teacher', 'school')),
   discipline_id TEXT,
   title TEXT NOT NULL,
@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS public.quests (
 CREATE TABLE IF NOT EXISTS public.quest_submissions (
   id TEXT PRIMARY KEY,
   quest_id TEXT REFERENCES public.quests(id) ON DELETE CASCADE,
-  student_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  student_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
   student_name TEXT NOT NULL,
   quest_title TEXT NOT NULL,
   reward_points INTEGER DEFAULT 50,
@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS public.rewards (
 CREATE TABLE IF NOT EXISTS public.redemptions (
   id TEXT PRIMARY KEY,
   reward_id TEXT REFERENCES public.rewards(id) ON DELETE CASCADE,
-  student_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  student_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
   reward_title TEXT NOT NULL,
   code TEXT UNIQUE NOT NULL,
   used BOOLEAN DEFAULT FALSE,
@@ -180,8 +180,8 @@ CREATE TABLE IF NOT EXISTS public.redemptions (
 -- ------------------------------------------
 CREATE TABLE IF NOT EXISTS public.flash_props (
   id TEXT PRIMARY KEY,
-  student_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  teacher_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  student_id TEXT REFERENCES public.profiles(id) ON DELETE CASCADE,
+  teacher_id TEXT REFERENCES public.profiles(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   xp INTEGER DEFAULT 50,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -270,8 +270,8 @@ BEGIN
     victory_streak_weeks
   )
   VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', 'SuperAdmin Master'),
+    NEW.id::text,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Nuevo Alumno'),
     NEW.email,
     assigned_role,
     assigned_status,
