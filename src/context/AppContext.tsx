@@ -318,6 +318,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Supabase Data Sync & Auth State Listener
   useEffect(() => {
+    // Run setup-db route automatically once on mount
+    fetch('/api/setup-db').catch(() => {});
+
     if (!isSupabaseConfigured()) return;
 
     // Fetch initial Supabase data
