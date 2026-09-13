@@ -14,7 +14,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [selectedRole, setSelectedRole] = useState('student');
+  const [selectedRole, setSelectedRole] = useState('teacher');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -29,12 +29,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: typeof window !== 'undefined' ? `${window.location.origin}` : undefined,
+          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
         },
       });
       if (error) throw error;
     } catch (err: any) {
-      setErrorMessage(err.message || `Error al conectar con ${provider}. Verifique la configuración en Supabase.`);
+      setErrorMessage(err.message || `Error al conectar con ${provider}. Asegúrate de habilitar ${provider} en el panel de Supabase.`);
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
@@ -59,12 +59,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         let role = (data.user.user_metadata?.role as string) || 'student';
         let name = (data.user.user_metadata?.full_name as string) || data.user.email?.split('@')[0] || 'Usuario';
 
-        // Check organization_members role if present in DB
+        // Check organization_members role from DB
         const { data: memberData } = await supabase
           .from('organization_members')
           .select('role')
           .eq('user_id', data.user.id)
-          .single();
+          .maybeSingle();
 
         if (memberData?.role) {
           role = memberData.role;
@@ -76,11 +76,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           email: data.user.email || email,
           role,
         });
-        setSuccessMessage('¡Sesión iniciada correctamente!');
+        setSuccessMessage('¡Sesión iniciada con éxito!');
         setTimeout(() => onClose(), 600);
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error al iniciar sesión. Revisa tu correo y contraseña.');
+      let msg = err.message || 'Error al iniciar sesión.';
+      if (msg.includes('Invalid login credentials')) {
+        msg = 'Credenciales incorrectas. Si es tu primera vez, crea la cuenta en la pestaña "Crear Cuenta".';
+      } else if (msg.includes('Email not confirmed')) {
+        msg = 'Correo no verificado. Inicia sesión o verifica tu bandeja de entrada.';
+      }
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
@@ -94,12 +100,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
     setSuccessMessage('');
 
     try {
+      // 1. Call Supabase Auth SignUp
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           data: {
-            full_name: fullName,
+            full_name: fullName.trim(),
             role: selectedRole,
           },
         },
@@ -107,30 +114,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
       if (error) throw error;
 
-      if (data.user) {
-        // Persist profile in Supabase profiles
-        const { error: profileErr } = await supabase.from('profiles').upsert({
-          id: data.user.id,
-          email: email,
-          full_name: fullName,
+      const userId = data.user?.id;
+
+      // 2. Insert profile if user returned
+      if (userId) {
+        await supabase.from('profiles').upsert({
+          id: userId,
+          email: email.trim(),
+          full_name: fullName.trim(),
         });
-
-        if (profileErr) {
-          console.warn('Profile upsert note:', profileErr.message);
-        }
-
-        onAuthSuccess({
-          id: data.user.id,
-          name: fullName || email.split('@')[0],
-          email,
-          role: selectedRole,
-        });
-
-        setSuccessMessage('¡Cuenta registrada con éxito en la base de datos! Bienvenido.');
-        setTimeout(() => onClose(), 800);
       }
+
+      // 3. Attempt immediate automatic login
+      const { data: loginData } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      const activeUserId = loginData?.user?.id || userId;
+
+      onAuthSuccess({
+        id: activeUserId,
+        name: fullName.trim() || email.split('@')[0],
+        email: email.trim(),
+        role: selectedRole,
+      });
+
+      setSuccessMessage('¡Cuenta creada e iniciada exitosamente!');
+      setTimeout(() => onClose(), 800);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error al registrar la cuenta en la base de datos.');
+      let msg = err.message || 'Error al registrar la cuenta en Supabase.';
+      if (msg.includes('User already registered')) {
+        msg = 'Este correo ya está registrado. Por favor entra en la pestaña "Iniciar Sesión".';
+      }
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
@@ -155,7 +172,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           <h2 className="font-heading font-extrabold text-2xl text-white tracking-tight">
             PLAZA <span className="gradient-text-violet">DANCE</span>
           </h2>
-          <p className="text-xs text-gray-400 mt-1">Acceso seguro a la plataforma de gestión de escuelas</p>
+          <p className="text-xs text-gray-400 mt-1">Acceso a la plataforma de gestión de escuelas</p>
         </div>
 
         {/* Tabs: Login / Register */}
@@ -180,8 +197,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
         {/* Global Feedback Alert Messages */}
         {errorMessage && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium">
-            ❌ {errorMessage}
+          <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium leading-relaxed">
+            ⚠️ {errorMessage}
           </div>
         )}
         {successMessage && (
@@ -240,7 +257,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-semibold text-gray-300">Contraseña</label>
-                <a href="#forgot" onClick={(e) => { e.preventDefault(); alert('Enlace de recuperación enviado a tu correo.'); }} className="text-xs text-purple-400 hover:underline">
+                <a href="#forgot" onClick={(e) => { e.preventDefault(); alert('Enlace de recuperación enviado.'); }} className="text-xs text-purple-400 hover:underline">
                   ¿Olvidaste clave?
                 </a>
               </div>
@@ -259,7 +276,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               disabled={loading}
               className="btn-primary w-full justify-center text-sm py-2.5 mt-2"
             >
-              {loading ? 'Verificando con BD...' : 'Entrar a Plaza Dance'}
+              {loading ? 'Verificando...' : 'Entrar a Plaza Dance'}
             </button>
           </form>
         )}
@@ -297,7 +314,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 8 caracteres"
+                placeholder="Mínimo 6 caracteres"
                 className="form-input"
                 required
                 minLength={6}
@@ -323,7 +340,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               disabled={loading}
               className="btn-primary w-full justify-center text-sm py-2.5 mt-2"
             >
-              {loading ? 'Creando en Base de Datos...' : 'Crear Cuenta y Guardar en BD'}
+              {loading ? 'Registrando en Supabase...' : 'Crear Cuenta y Guardar'}
             </button>
           </form>
         )}
