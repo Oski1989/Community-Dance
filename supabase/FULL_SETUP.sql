@@ -4,6 +4,55 @@
 -- la base de datos completa con tablas, RLS, funciones atómicas y tipos.
 -- ============================================================================
 
+-- 0. LIMPIEZA DE TABLAS ANTIGUAS (Necesario si existía APP MASTER u otro proyecto previo)
+-- Se eliminan en orden inverso de dependencia para evitar conflictos de FK.
+DROP TABLE IF EXISTS public.notifications CASCADE;
+DROP TABLE IF EXISTS public.audit_logs CASCADE;
+DROP TABLE IF EXISTS public.community_posts CASCADE;
+DROP TABLE IF EXISTS public.user_quest_progress CASCADE;
+DROP TABLE IF EXISTS public.quests CASCADE;
+DROP TABLE IF EXISTS public.payments CASCADE;
+DROP TABLE IF EXISTS public.user_memberships CASCADE;
+DROP TABLE IF EXISTS public.membership_plans CASCADE;
+DROP TABLE IF EXISTS public.attendances CASCADE;
+DROP TABLE IF EXISTS public.waitlists CASCADE;
+DROP TABLE IF EXISTS public.reservations CASCADE;
+DROP TABLE IF EXISTS public.sessions CASCADE;
+DROP TABLE IF EXISTS public.groups CASCADE;
+DROP TABLE IF EXISTS public.sublevels CASCADE;
+DROP TABLE IF EXISTS public.levels CASCADE;
+DROP TABLE IF EXISTS public.programs CASCADE;
+DROP TABLE IF EXISTS public.organization_invitations CASCADE;
+DROP TABLE IF EXISTS public.organization_members CASCADE;
+DROP TABLE IF EXISTS public.organizations CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+
+-- Limpiar tipos antiguos si existen con definición diferente
+DROP TYPE IF EXISTS public.org_role CASCADE;
+DROP TYPE IF EXISTS public.system_role CASCADE;
+DROP TYPE IF EXISTS public.session_status CASCADE;
+DROP TYPE IF EXISTS public.reservation_status CASCADE;
+DROP TYPE IF EXISTS public.dance_role_used CASCADE;
+DROP TYPE IF EXISTS public.attendance_status CASCADE;
+DROP TYPE IF EXISTS public.membership_type CASCADE;
+DROP TYPE IF EXISTS public.membership_status CASCADE;
+DROP TYPE IF EXISTS public.payment_method CASCADE;
+DROP TYPE IF EXISTS public.payment_status CASCADE;
+DROP TYPE IF EXISTS public.quest_submission_status CASCADE;
+
+-- Limpiar funciones antiguas
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS public.is_superadmin(UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.has_org_role(UUID, UUID, public.org_role[]) CASCADE;
+DROP FUNCTION IF EXISTS public.reserve_session_atomic(UUID, UUID, public.dance_role_used) CASCADE;
+DROP FUNCTION IF EXISTS public.cancel_reservation_atomic(UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.record_attendance_atomic(UUID, UUID, public.attendance_status, UUID, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.use_membership_credit_atomic(UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.submit_quest_proof_atomic(UUID, UUID, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.review_quest_submission_atomic(UUID, UUID, BOOLEAN, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.log_audit_event_atomic(UUID, UUID, TEXT, TEXT, JSONB, INET) CASCADE;
+DROP FUNCTION IF EXISTS public.accept_org_invitation(TEXT, UUID) CASCADE;
+
 -- 1. EXTENSIONES Y ENUMS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
