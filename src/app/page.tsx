@@ -6,36 +6,55 @@ import { Sidebar } from '@/components/ui/Sidebar';
 import { StatCard, Modal } from '@/components/ui/StatCard';
 
 export default function HomePage() {
-  const [currentRole, setCurrentRole] = useState<string>('owner');
+  const [currentRole] = useState<string>('owner'); // Default role: owner/director
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [modalType, setModalType] = useState<string>('');
 
   // Sample State Data for Dynamic UI Testing
-  const [programs] = useState([
-    { id: 'p1', name: 'Salsa Cubana y Rueda de Casino', discipline: 'Salsa', level: 'Intermedio' },
-    { id: 'p2', name: 'Bachata Sensual & Flow', discipline: 'Bachata', level: 'Avanzado' },
-    { id: 'p3', name: 'Kizomba Fusion', discipline: 'Kizomba', level: 'Iniciación' },
+  const [programs, setPrograms] = useState([
+    { id: 'p1', name: 'Salsa Cubana y Rueda de Casino', discipline: 'Salsa', level: 'Intermedio', modulesCount: 6, xpPoints: 120 },
+    { id: 'p2', name: 'Bachata Sensual & Flow', discipline: 'Bachata', level: 'Avanzado', modulesCount: 8, xpPoints: 180 },
+    { id: 'p3', name: 'Kizomba Fusion', discipline: 'Kizomba', level: 'Iniciación', modulesCount: 4, xpPoints: 90 },
+    { id: 'p4', name: 'Estilo Chica & Técnica Corporal', discipline: 'Lady Style', level: 'Todos los niveles', modulesCount: 5, xpPoints: 100 },
   ]);
 
   const [sessions, setSessions] = useState([
     { id: 's1', name: 'Salsa Cubana Nivel 2', time: 'Hoy 19:00 - 20:00', confirmed: 14, capacity: 16, leaders: 7, followers: 7, waitlist: 2 },
     { id: 's2', name: 'Bachata Sensual Parejas', time: 'Hoy 20:00 - 21:00', confirmed: 18, capacity: 18, leaders: 9, followers: 9, waitlist: 4 },
     { id: 's3', name: 'Kizomba Iniciación', time: 'Mañana 18:30 - 19:30', confirmed: 8, capacity: 14, leaders: 4, followers: 4, waitlist: 0 },
+    { id: 's4', name: 'Rueda de Casino Especial', time: 'Viernes 21:00 - 22:30', confirmed: 12, capacity: 20, leaders: 6, followers: 6, waitlist: 0 },
   ]);
 
   const [quests, setQuests] = useState([
     { id: 'q1', title: 'Paso Básico Salsa en 8 Tiempos', program: 'Salsa Cubana', points: 20, status: 'approved', teacher: 'Carlos Pro' },
     { id: 'q2', title: 'Onda Sensual Bachata sin Perder Ritmo', program: 'Bachata Sensual', points: 30, status: 'submitted', teacher: 'Laura Dance' },
     { id: 'q3', title: 'Saida Esquerda Kizomba', program: 'Kizomba', points: 15, status: 'in_progress', teacher: 'Carlos Pro' },
+    { id: 'q4', title: 'Disociación de Torso y Cadera', program: 'Lady Style', points: 25, status: 'submitted', teacher: 'Elena Gómez' },
   ]);
 
   const [communityPosts, setCommunityPosts] = useState([
-    { id: 'c1', user: 'Elena Gómez', role: 'Alumno', time: 'Hace 2 horas', content: '¡Increíble la clase de Bachata Sensual de ayer! 🔥 ¿Quién viene al social del viernes?', likes: 12 },
-    { id: 'c2', user: 'Carlos Profesor', role: 'Profesor', time: 'Hace 5 horas', content: 'Recordatorio a los alumnos de Salsa Intermedio: Ya tenéis activo el nuevo Reto de Rueda de Casino en la sección de Quests 💃', likes: 24 },
+    { id: 'c1', user: 'Elena Gómez', role: 'ALUMNO', time: 'Hace 2 horas', content: '¡Increíble la clase de Bachata Sensual de ayer! 🔥 ¿Quién viene al social del viernes?', likes: 12 },
+    { id: 'c2', user: 'Carlos Profesor', role: 'PROFESOR', time: 'Hace 5 horas', content: 'Recordatorio a los alumnos de Salsa Intermedio: Ya tenéis activo el nuevo Reto de Rueda de Casino en la sección de Quests 💃', likes: 24 },
   ]);
 
+  const [members, setMembers] = useState([
+    { id: 'm1', name: 'Óscar Director', email: 'director@plazadance.com', role: 'owner', status: 'Activo' },
+    { id: 'm2', name: 'Carlos Profesor', email: 'profesor@plazadance.com', role: 'teacher', status: 'Activo' },
+    { id: 'm3', name: 'Laura Recepción', email: 'recepcion@plazadance.com', role: 'reception', status: 'Activo' },
+    { id: 'm4', name: 'Elena Alumna', email: 'alumno@plazadance.com', role: 'student', status: 'Activo' },
+    { id: 'm5', name: 'Roberto Fernández', email: 'roberto@email.com', role: 'student', status: 'Pendiente' },
+  ]);
+
+  const [newProgramName, setNewProgramName] = useState('');
+  const [newProgramDiscipline, setNewProgramDiscipline] = useState('Salsa');
+  const [newProgramLevel, setNewProgramLevel] = useState('Iniciación');
+  const [newQuestTitle, setNewQuestTitle] = useState('');
+  const [newQuestPoints, setNewQuestPoints] = useState(20);
   const [newPostContent, setNewPostContent] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('student');
   const [reservationMessage, setReservationMessage] = useState('');
 
   // Handle Quick Reservation Simulation (Atomic Concurrency Rule Test UI)
@@ -47,16 +66,58 @@ export default function HomePage() {
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, confirmed: s.confirmed + 1 } : s))
       );
-      setReservationMessage(`✅ Reserva CONFIRMADA para "${target.name}". ¡Plaza asegurada!`);
+      setReservationMessage(`✅ Reserva CONFIRMADA para "${target.name}". ¡Plaza asegurada en Supabase!`);
     } else {
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, waitlist: s.waitlist + 1 } : s))
       );
-      setReservationMessage(`⚠️ Aforo lleno. Has sido añadido a la LISTA DE ESPERA en Posición #${target.waitlist + 1}.`);
+      setReservationMessage(`⚠️ Aforo lleno. Añadido a LISTA DE ESPERA en Posición #${target.waitlist + 1}.`);
     }
   };
 
-  // Handle Post Creation
+  // Create New Program
+  const handleCreateProgram = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProgramName.trim()) return;
+
+    setPrograms([
+      ...programs,
+      {
+        id: `p_${Date.now()}`,
+        name: newProgramName,
+        discipline: newProgramDiscipline,
+        level: newProgramLevel,
+        modulesCount: 4,
+        xpPoints: 100,
+      },
+    ]);
+    setNewProgramName('');
+    setIsModalOpen(false);
+    setReservationMessage(`🎉 Programa "${newProgramName}" creado con éxito.`);
+  };
+
+  // Create New Quest
+  const handleCreateQuest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newQuestTitle.trim()) return;
+
+    setQuests([
+      ...quests,
+      {
+        id: `q_${Date.now()}`,
+        title: newQuestTitle,
+        program: newProgramDiscipline,
+        points: Number(newQuestPoints),
+        status: 'submitted',
+        teacher: 'Óscar Director',
+      },
+    ]);
+    setNewQuestTitle('');
+    setIsModalOpen(false);
+    setReservationMessage(`🏆 Reto "${newQuestTitle}" publicado para los alumnos.`);
+  };
+
+  // Create Post
   const handleCreatePost = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPostContent.trim()) return;
@@ -64,8 +125,8 @@ export default function HomePage() {
     setCommunityPosts([
       {
         id: `c_${Date.now()}`,
-        user: 'Óscar Admin',
-        role: currentRole.toUpperCase(),
+        user: 'Óscar Director',
+        role: 'DIRECTOR',
         time: 'Justo ahora',
         content: newPostContent,
         likes: 0,
@@ -76,35 +137,64 @@ export default function HomePage() {
     setIsModalOpen(false);
   };
 
+  // Invite Member
+  const handleInviteMember = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMemberEmail.trim()) return;
+
+    setMembers([
+      ...members,
+      {
+        id: `m_${Date.now()}`,
+        name: newMemberEmail.split('@')[0],
+        email: newMemberEmail,
+        role: newMemberRole,
+        status: 'Invitado',
+      },
+    ]);
+    setNewMemberEmail('');
+    setIsModalOpen(false);
+    setReservationMessage(`📩 Invitación enviada a ${newMemberEmail}.`);
+  };
+
   return (
-    <div className="min-h-screen bg-[#090D16] text-gray-100 flex flex-col">
+    <div className="min-h-screen bg-[#090D16] text-gray-100 flex flex-col font-sans">
       {/* Top Navigation */}
-      <Navbar currentRole={currentRole} onRoleChange={(r) => { setCurrentRole(r); setActiveTab('dashboard'); }} />
+      <Navbar
+        currentRole={currentRole}
+        onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+      />
 
       <div className="flex-1 flex">
         {/* Left Sidebar */}
-        <Sidebar currentRole={currentRole} activeTab={activeTab} onTabChange={setActiveTab} />
+        <Sidebar
+          currentRole={currentRole}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          isMobileOpen={isMobileMenuOpen}
+          onMobileClose={() => setIsMobileMenuOpen(false)}
+        />
 
         {/* Main Content View Container */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
           {/* Global Toast Message */}
           {reservationMessage && (
-            <div className="mb-6 p-4 rounded-xl bg-purple-900/40 border border-purple-500/50 text-purple-200 text-sm flex items-center justify-between animate-fade-in">
+            <div className="mb-6 p-4 rounded-xl bg-purple-900/40 border border-purple-500/50 text-purple-200 text-sm flex items-center justify-between animate-fade-in shadow-glow-violet">
               <span>{reservationMessage}</span>
-              <button onClick={() => setReservationMessage('')} className="text-gray-400 hover:text-white">✕</button>
+              <button onClick={() => setReservationMessage('')} className="text-gray-400 hover:text-white font-bold ml-2">✕</button>
             </div>
           )}
 
-          {/* ─── ROLE: OWNER / ADMIN DASHBOARD ─── */}
-          {(currentRole === 'owner' || currentRole === 'admin') && activeTab === 'dashboard' && (
+          {/* ─── 1. TAB: DASHBOARD (RESUMEN KPI) ─── */}
+          {activeTab === 'dashboard' && (
             <div className="space-y-8 animate-fade-in">
               <div>
-                <h1 className="font-heading font-extrabold text-3xl text-white">Panel de Dirección</h1>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Panel de Dirección</h1>
                 <p className="text-gray-400 text-sm mt-1">Gestión académica, aforos en tiempo real, facturación "a cuenta" y métricas de la escuela.</p>
               </div>
 
               {/* KPI Stat Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
                 <StatCard title="Alumnos Activos" value="248" subtitle="En 14 grupos semanales" icon="👥" trend="+12%" trendUp={true} />
                 <StatCard title="Ocupación de Aforos" value="89%" subtitle="182 plazas reservadas de 204" icon="📊" trend="+5%" trendUp={true} />
                 <StatCard title="Recaudación Mes" value="14.850 €" subtitle="Cobros totales + 'A cuenta'" icon="💳" trend="+18%" trendUp={true} />
@@ -113,14 +203,14 @@ export default function HomePage() {
 
               {/* Live Session Capacity Overview */}
               <div className="glass-panel p-6">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                   <div>
                     <h2 className="font-heading font-bold text-xl text-white">Próximas Clases y Aforos Atómicos</h2>
-                    <p className="text-xs text-gray-400">Control transaccional contra sobreventas (Líderes / Seguidores)</p>
+                    <p className="text-xs text-gray-400">Control transaccional en PostgreSQL contra sobreventas (Líderes / Seguidores)</p>
                   </div>
                   <button
                     onClick={() => { setModalType('session'); setIsModalOpen(true); }}
-                    className="btn-primary text-xs"
+                    className="btn-primary text-xs shrink-0"
                   >
                     + Nueva Clase
                   </button>
@@ -128,7 +218,7 @@ export default function HomePage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   {sessions.map((sess) => (
-                    <div key={sess.id} className="p-5 rounded-2xl bg-gray-900/60 border border-gray-800 flex flex-col justify-between hover:border-purple-500/40 transition">
+                    <div key={sess.id} className="p-5 rounded-2xl bg-gray-900/80 border border-gray-800 flex flex-col justify-between hover:border-purple-500/40 transition">
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <span className="badge badge-purple">{sess.time}</span>
@@ -154,13 +244,13 @@ export default function HomePage() {
                         <div className="flex items-center justify-between text-xs text-gray-400 bg-gray-950 p-2.5 rounded-xl border border-gray-800">
                           <span>🕺 Líderes: <strong className="text-white">{sess.leaders}</strong></span>
                           <span>💃 Seguidores: <strong className="text-white">{sess.followers}</strong></span>
-                          <span>⏳ Lista Espera: <strong className="text-amber-400">{sess.waitlist}</strong></span>
+                          <span>⏳ Espera: <strong className="text-amber-400">{sess.waitlist}</strong></span>
                         </div>
                       </div>
 
                       <button
                         onClick={() => handleReserve(sess.id)}
-                        className="mt-4 w-full py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/30 transition text-xs font-semibold"
+                        className="mt-4 w-full py-2.5 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/30 transition text-xs font-semibold"
                       >
                         Simular Reserva Atómica
                       </button>
@@ -171,61 +261,76 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ─── ROLE: TEACHER PORTAL ─── */}
-          {(currentRole === 'teacher' || (currentRole === 'owner' && activeTab === 'quests')) && (
+          {/* ─── 2. TAB: PROGRAMAS & CLASES ─── */}
+          {activeTab === 'programs' && (
             <div className="space-y-8 animate-fade-in">
-              <div>
-                <h1 className="font-heading font-extrabold text-3xl text-white">Portal del Profesor</h1>
-                <p className="text-gray-400 text-sm mt-1">Gestión descentralizada de programas, revisión de retos por disciplina y paso de lista.</p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Programas & Diseñador de Temario</h1>
+                  <p className="text-gray-400 text-sm mt-1">Disciplinas de baile, árbol de niveles, módulos técnicos y asignación de puntos XP.</p>
+                </div>
+                <button
+                  onClick={() => { setModalType('program'); setIsModalOpen(true); }}
+                  className="btn-primary text-xs"
+                >
+                  + Nuevo Programa
+                </button>
               </div>
 
-              {/* Teacher Quests Inbox */}
-              <div className="glass-panel p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className="font-heading font-bold text-xl text-white">Retos y Entregas de Alumnos</h2>
-                    <p className="text-xs text-gray-400">Revisa pruebas en vídeo y otorga puntos comunitarios</p>
-                  </div>
-                  <button
-                    onClick={() => { setModalType('quest'); setIsModalOpen(true); }}
-                    className="btn-primary text-xs"
-                  >
-                    + Crear Reto
-                  </button>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {programs.map((prog) => (
+                  <div key={prog.id} className="glass-panel p-6 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="badge badge-cyan">{prog.discipline}</span>
+                        <span className="badge badge-purple">{prog.level}</span>
+                      </div>
+                      <h3 className="font-heading font-bold text-xl text-white mb-2">{prog.name}</h3>
+                      <p className="text-xs text-gray-400 mb-4">
+                        Diseño curricular pedagógico estructurado en {prog.modulesCount} módulos secuenciales con vídeos de técnica.
+                      </p>
+                    </div>
 
-                <div className="space-y-4">
-                  {quests.map((q) => (
-                    <div key={q.id} className="p-4 rounded-xl bg-gray-900/80 border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
+                      <span className="text-xs text-amber-400 font-semibold">🏆 Recompensa: +{prog.xpPoints} XP</span>
+                      <button className="btn-secondary text-xs">Editar Temario</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── 3. TAB: RESERVAS & AFOROS ─── */}
+          {activeTab === 'reservations' && (
+            <div className="space-y-8 animate-fade-in">
+              <div>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Gestión de Reservas & Control de Aforos</h1>
+                <p className="text-gray-400 text-sm mt-1">Control de asistencia por pareja, balance de roles y gestión de lista de espera.</p>
+              </div>
+
+              <div className="glass-panel p-6 space-y-4">
+                <h2 className="font-heading font-bold text-lg text-white">Listado de Sesiones Activas</h2>
+                <div className="space-y-3">
+                  {sessions.map((sess) => (
+                    <div key={sess.id} className="p-4 rounded-xl bg-gray-900 border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="badge badge-cyan">{q.program}</span>
-                          <span className="text-xs text-amber-400 font-semibold">+{q.points} Puntos</span>
+                          <span className="badge badge-purple">{sess.time}</span>
+                          <span className="text-xs text-gray-400">Capacidad: {sess.capacity} plazas</span>
                         </div>
-                        <h3 className="font-semibold text-white text-base">{q.title}</h3>
-                        <p className="text-xs text-gray-400">Profesor: {q.teacher}</p>
+                        <h3 className="font-bold text-white text-base">{sess.name}</h3>
                       </div>
-
                       <div className="flex items-center gap-3">
-                        <span
-                          className={`badge ${
-                            q.status === 'approved' ? 'badge-emerald' : q.status === 'submitted' ? 'badge-amber' : 'badge-purple'
-                          }`}
-                        >
-                          {q.status === 'approved' ? 'Aprobado' : q.status === 'submitted' ? 'Pendiente Revisión' : 'En Progreso'}
+                        <span className="text-xs text-gray-300">
+                          Confirmados: <strong className="text-emerald-400">{sess.confirmed}</strong>
                         </span>
-                        {q.status === 'submitted' && (
-                          <button
-                            onClick={() => {
-                              setQuests((prev) =>
-                                prev.map((item) => (item.id === q.id ? { ...item, status: 'approved' } : item))
-                              );
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition"
-                          >
-                            Aprobar (+{q.points} Pts)
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleReserve(sess.id)}
+                          className="btn-primary text-xs"
+                        >
+                          Reservar Plaza
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -234,11 +339,11 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ─── ROLE: RECEPTION & CHECK-IN ─── */}
-          {(currentRole === 'reception' || (currentRole === 'owner' && activeTab === 'attendance')) && (
+          {/* ─── 4. TAB: ASISTENCIA & CHECK-IN ─── */}
+          {activeTab === 'attendance' && (
             <div className="space-y-8 animate-fade-in">
               <div>
-                <h1 className="font-heading font-extrabold text-3xl text-white">Recepción & Check-In QR</h1>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Recepción & Check-In QR</h1>
                 <p className="text-gray-400 text-sm mt-1">Lector de código QR en puerta, cobros parciales "a cuenta" y marcas de asistencia.</p>
               </div>
 
@@ -293,61 +398,183 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ─── ROLE: STUDENT PORTAL ─── */}
-          {(currentRole === 'student' || activeTab === 'community') && (
+          {/* ─── 5. TAB: PAGOS & BONOS ─── */}
+          {activeTab === 'payments' && (
             <div className="space-y-8 animate-fade-in">
               <div>
-                <h1 className="font-heading font-extrabold text-3xl text-white">Portal del Alumno & Comunidad</h1>
-                <p className="text-gray-400 text-sm mt-1">Tus clases reservadas, saldo de bonos, retos conseguidos y feed de la escuela.</p>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Pagos, Bonos & Finanzas</h1>
+                <p className="text-gray-400 text-sm mt-1">Control de suscripciones, bono de 10 clases y cobros fraccionados "a cuenta".</p>
               </div>
 
-              {/* Student Credits & Feed */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Active Passes & Credits */}
-                <div className="glass-panel p-6 space-y-4">
-                  <h2 className="font-heading font-bold text-lg text-white">Mis Bonos Activos</h2>
-                  <div className="p-4 rounded-xl bg-gradient-to-r from-purple-900/50 to-pink-900/50 border border-purple-500/30">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-bold text-white text-sm">Bono 10 Clases Salsa/Bachata</span>
-                      <span className="badge badge-emerald">Activo</span>
-                    </div>
-                    <p className="text-3xl font-black text-white my-1">6 <span className="text-xs font-normal text-purple-200">créditos restantes</span></p>
-                    <p className="text-xs text-gray-300">Caduca en: 24 días</p>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="glass-panel p-6 space-y-3">
+                  <span className="badge badge-emerald">Bono 10 Clases</span>
+                  <h3 className="font-bold text-xl text-white">Salsa & Bachata Pack</h3>
+                  <p className="text-3xl font-extrabold text-white">90 €</p>
+                  <p className="text-xs text-gray-400">Válido durante 60 días desde la primera clase.</p>
+                  <button className="btn-primary w-full text-xs mt-2">Asignar a Alumno</button>
                 </div>
 
-                {/* Community Feed */}
-                <div className="md:col-span-2 glass-panel p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="font-heading font-bold text-lg text-white">Muro Social de la Escuela</h2>
-                    <button
-                      onClick={() => { setModalType('post'); setIsModalOpen(true); }}
-                      className="btn-primary text-xs"
-                    >
-                      + Publicar
-                    </button>
-                  </div>
+                <div className="glass-panel p-6 space-y-3">
+                  <span className="badge badge-purple">Mensualidad</span>
+                  <h3 className="font-bold text-xl text-white">Tarifa Plana Completa</h3>
+                  <p className="text-3xl font-extrabold text-white">65 € <span className="text-xs font-normal text-gray-400">/mes</span></p>
+                  <p className="text-xs text-gray-400">Acceso ilimitado a todos los grupos de la escuela.</p>
+                  <button className="btn-primary w-full text-xs mt-2">Asignar a Alumno</button>
+                </div>
 
-                  <div className="space-y-4">
-                    {communityPosts.map((post) => (
-                      <div key={post.id} className="p-4 rounded-xl bg-gray-900 border border-gray-800 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs">
-                              {post.user.charAt(0)}
-                            </div>
-                            <span className="font-semibold text-white text-sm">{post.user}</span>
-                            <span className="badge badge-purple">{post.role}</span>
-                          </div>
-                          <span className="text-xs text-gray-500">{post.time}</span>
+                <div className="glass-panel p-6 space-y-3">
+                  <span className="badge badge-amber">Saldos Pendientes</span>
+                  <h3 className="font-bold text-xl text-white">Pendientes "A Cuenta"</h3>
+                  <p className="text-3xl font-extrabold text-amber-400">620 €</p>
+                  <p className="text-xs text-gray-400">Total acumulado a cobrar en recepción esta semana.</p>
+                  <button className="btn-secondary w-full text-xs mt-2">Ver Lista Pendientes</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── 6. TAB: RETOS & QUESTS ─── */}
+          {activeTab === 'quests' && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Retos & Desafíos Comunitarios</h1>
+                  <p className="text-gray-400 text-sm mt-1">Revisa vídeos de alumnos, otorga puntos XP y gestiona el ranking pedagógico.</p>
+                </div>
+                <button
+                  onClick={() => { setModalType('quest'); setIsModalOpen(true); }}
+                  className="btn-primary text-xs"
+                >
+                  + Crear Reto
+                </button>
+              </div>
+
+              <div className="glass-panel p-6">
+                <div className="space-y-4">
+                  {quests.map((q) => (
+                    <div key={q.id} className="p-4 rounded-xl bg-gray-900/80 border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="badge badge-cyan">{q.program}</span>
+                          <span className="text-xs text-amber-400 font-semibold">+{q.points} Puntos</span>
                         </div>
-                        <p className="text-sm text-gray-300">{post.content}</p>
-                        <div className="flex items-center gap-2 pt-2 text-xs text-gray-400">
-                          <button className="hover:text-pink-400 transition">❤️ {post.likes} Me gusta</button>
-                        </div>
+                        <h3 className="font-semibold text-white text-base">{q.title}</h3>
+                        <p className="text-xs text-gray-400">Profesor asignado: {q.teacher}</p>
                       </div>
-                    ))}
+
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`badge ${
+                            q.status === 'approved' ? 'badge-emerald' : q.status === 'submitted' ? 'badge-amber' : 'badge-purple'
+                          }`}
+                        >
+                          {q.status === 'approved' ? 'Aprobado' : q.status === 'submitted' ? 'Pendiente Revisión' : 'En Progreso'}
+                        </span>
+                        {q.status === 'submitted' && (
+                          <button
+                            onClick={() => {
+                              setQuests((prev) =>
+                                prev.map((item) => (item.id === q.id ? { ...item, status: 'approved' } : item))
+                              );
+                              setReservationMessage(`🎉 Reto "${q.title}" APROBADO. Puntos sumados al alumno.`);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition"
+                          >
+                            Aprobar (+{q.points} Pts)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── 7. TAB: COMUNIDAD ─── */}
+          {activeTab === 'community' && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Comunidad & Muro Social</h1>
+                  <p className="text-gray-400 text-sm mt-1">Espacio de interacción entre profesores, alumnos y equipo de recepción.</p>
+                </div>
+                <button
+                  onClick={() => { setModalType('post'); setIsModalOpen(true); }}
+                  className="btn-primary text-xs"
+                >
+                  + Publicar
+                </button>
+              </div>
+
+              <div className="glass-panel p-6 space-y-4">
+                {communityPosts.map((post) => (
+                  <div key={post.id} className="p-4 rounded-xl bg-gray-900 border border-gray-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs">
+                          {post.user.charAt(0)}
+                        </div>
+                        <span className="font-semibold text-white text-sm">{post.user}</span>
+                        <span className="badge badge-purple">{post.role}</span>
+                      </div>
+                      <span className="text-xs text-gray-500">{post.time}</span>
+                    </div>
+                    <p className="text-sm text-gray-300">{post.content}</p>
+                    <div className="flex items-center gap-2 pt-2 text-xs text-gray-400">
+                      <button className="hover:text-pink-400 transition">❤️ {post.likes} Me gusta</button>
+                    </div>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── 8. TAB: MIEMBROS & EQUIPOS ─── */}
+          {activeTab === 'invitations' && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Miembros & Equipo de la Escuela</h1>
+                  <p className="text-gray-400 text-sm mt-1">Gestión de usuarios y asignación de roles (Directores, Profesores, Recepción, Alumnos).</p>
+                </div>
+                <button
+                  onClick={() => { setModalType('member'); setIsModalOpen(true); }}
+                  className="btn-primary text-xs"
+                >
+                  + Invitar Miembro
+                </button>
+              </div>
+
+              <div className="glass-panel p-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-800 text-gray-400">
+                        <th className="pb-3 font-semibold">Nombre</th>
+                        <th className="pb-3 font-semibold">Email</th>
+                        <th className="pb-3 font-semibold">Rol Asignado</th>
+                        <th className="pb-3 font-semibold">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {members.map((m) => (
+                        <tr key={m.id} className="hover:bg-white/5 transition">
+                          <td className="py-3 font-semibold text-white">{m.name}</td>
+                          <td className="py-3 text-gray-300">{m.email}</td>
+                          <td className="py-3">
+                            <span className="badge badge-purple uppercase font-bold">{m.role}</span>
+                          </td>
+                          <td className="py-3">
+                            <span className={`badge ${m.status === 'Activo' ? 'badge-emerald' : 'badge-amber'}`}>
+                              {m.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -355,16 +582,98 @@ export default function HomePage() {
         </main>
       </div>
 
-      {/* Modal Dialog Container */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={modalType === 'post' ? 'Nueva Publicación' : 'Crear Elemento'}>
-        {modalType === 'post' ? (
+      {/* Dynamic Modal Dialog Container */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={
+        modalType === 'program' ? 'Crear Nuevo Programa' :
+        modalType === 'quest' ? 'Crear Reto Pedagógico' :
+        modalType === 'post' ? 'Nueva Publicación en Comunidad' :
+        modalType === 'member' ? 'Invitar Nuevo Miembro' : 'Crear Elemento'
+      }>
+        {modalType === 'program' && (
+          <form onSubmit={handleCreateProgram} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Nombre del Programa</label>
+              <input
+                type="text"
+                value={newProgramName}
+                onChange={(e) => setNewProgramName(e.target.value)}
+                placeholder="Ej: Salsa Cubana y Rueda de Casino"
+                className="form-input"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Disciplina</label>
+                <select
+                  value={newProgramDiscipline}
+                  onChange={(e) => setNewProgramDiscipline(e.target.value)}
+                  className="form-input"
+                >
+                  <option value="Salsa">Salsa</option>
+                  <option value="Bachata">Bachata</option>
+                  <option value="Kizomba">Kizomba</option>
+                  <option value="Lady Style">Lady Style</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Nivel</label>
+                <select
+                  value={newProgramLevel}
+                  onChange={(e) => setNewProgramLevel(e.target.value)}
+                  className="form-input"
+                >
+                  <option value="Iniciación">Iniciación</option>
+                  <option value="Intermedio">Intermedio</option>
+                  <option value="Avanzado">Avanzado</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
+              <button type="submit" className="btn-primary text-xs">Guardar Programa</button>
+            </div>
+          </form>
+        )}
+
+        {modalType === 'quest' && (
+          <form onSubmit={handleCreateQuest} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Título del Reto</label>
+              <input
+                type="text"
+                value={newQuestTitle}
+                onChange={(e) => setNewQuestTitle(e.target.value)}
+                placeholder="Ej: Ejecución de Dile que No con estilo"
+                className="form-input"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Puntos XP de Recompensa</label>
+              <input
+                type="number"
+                value={newQuestPoints}
+                onChange={(e) => setNewQuestPoints(Number(e.target.value))}
+                className="form-input"
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
+              <button type="submit" className="btn-primary text-xs">Publicar Reto</button>
+            </div>
+          </form>
+        )}
+
+        {modalType === 'post' && (
           <form onSubmit={handleCreatePost} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1">Mensaje para la Comunidad</label>
               <textarea
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder="Escribe tu mensaje o duda sobre las clases..."
+                placeholder="Escribe tu mensaje o aviso para la escuela..."
                 className="form-input h-28 resize-none"
                 required
               ></textarea>
@@ -374,9 +683,44 @@ export default function HomePage() {
               <button type="submit" className="btn-primary text-xs">Publicar</button>
             </div>
           </form>
-        ) : (
+        )}
+
+        {modalType === 'member' && (
+          <form onSubmit={handleInviteMember} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Email del Nuevo Miembro</label>
+              <input
+                type="email"
+                value={newMemberEmail}
+                onChange={(e) => setNewMemberEmail(e.target.value)}
+                placeholder="profesor@email.com"
+                className="form-input"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Rol a Asignar</label>
+              <select
+                value={newMemberRole}
+                onChange={(e) => setNewMemberRole(e.target.value)}
+                className="form-input"
+              >
+                <option value="owner">Director / Owner</option>
+                <option value="teacher">Profesor</option>
+                <option value="reception">Recepción</option>
+                <option value="student">Alumno</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
+              <button type="submit" className="btn-primary text-xs">Enviar Invitación</button>
+            </div>
+          </form>
+        )}
+
+        {modalType === 'session' && (
           <div className="text-center py-4 space-y-3">
-            <p className="text-sm text-gray-300">Formulario listo para guardar cambios vía API REST multi-tenant.</p>
+            <p className="text-sm text-gray-300">Nueva sesión en proceso de programación en calendario.</p>
             <button onClick={() => setIsModalOpen(false)} className="btn-primary text-xs">Cerrar</button>
           </div>
         )}
