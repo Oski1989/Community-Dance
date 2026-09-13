@@ -1,12 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 
 interface NavbarProps {
   currentRole?: string;
-  onRoleChange?: (role: string) => void;
   orgName?: string;
   userName?: string;
+  userEmail?: string;
+  unreadCount?: number;
+  onNotificationsClick?: () => void;
+  onLoginClick?: () => void;
+  onLogoutClick?: () => void;
   onMobileMenuToggle?: () => void;
 }
 
@@ -14,8 +18,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentRole = 'owner',
   orgName = 'Escuela Plaza Dance Madrid',
   userName = 'Óscar Director',
+  userEmail = 'director@plazadance.com',
+  unreadCount = 2,
+  onNotificationsClick,
+  onLoginClick,
+  onLogoutClick,
   onMobileMenuToggle,
 }) => {
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
   const getRoleLabel = (role: string) => {
     switch (role) {
       case 'owner':
@@ -65,36 +76,75 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* User Profile & Role Indicator */}
+      {/* User Controls & Profile */}
       <div className="flex items-center gap-3">
         <span className={`hidden xs:inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${roleInfo.color}`}>
           {roleInfo.label}
         </span>
 
-        {/* Notifications Icon */}
+        {/* Notifications Icon Button */}
         <button
           id="btn-notifications"
+          onClick={onNotificationsClick}
           aria-label="Notificaciones"
-          className="relative p-2 rounded-xl bg-gray-900 border border-gray-800 text-gray-300 hover:text-white transition"
+          className="relative p-2.5 rounded-xl bg-gray-900 border border-gray-800 text-gray-300 hover:text-white transition hover:border-purple-500/40"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-pink-500"></span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-[10px] flex items-center justify-center border-2 border-slate-950">
+              {unreadCount}
+            </span>
+          )}
         </button>
 
-        {/* User Profile Info */}
-        <div className="flex items-center gap-2.5 pl-2 border-l border-gray-800">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 flex items-center justify-center font-bold text-white text-sm">
-            {userName.charAt(0)}
-          </div>
-          <div className="hidden lg:block text-left text-xs">
-            <p className="font-semibold text-white">{userName}</p>
-            <p className="text-gray-400 capitalize">{currentRole}</p>
-          </div>
+        {/* User Profile Menu Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            className="flex items-center gap-2.5 pl-2 border-l border-gray-800 text-left focus:outline-none"
+          >
+            <div className="w-9 h-9 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 flex items-center justify-center font-bold text-white text-sm shadow-md">
+              {userName.charAt(0)}
+            </div>
+            <div className="hidden lg:block">
+              <p className="font-semibold text-white text-xs">{userName}</p>
+              <p className="text-[11px] text-gray-400 truncate max-w-[120px]">{userEmail}</p>
+            </div>
+            <svg className="w-4 h-4 text-gray-400 hidden lg:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* User Dropdown Menu Popup */}
+          {isUserMenuOpen && (
+            <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-slate-950 border border-purple-500/30 p-2 shadow-2xl z-50 animate-fade-in text-xs space-y-1">
+              <div className="p-2 border-b border-gray-800">
+                <p className="font-bold text-white">{userName}</p>
+                <p className="text-gray-400 text-[11px]">{userEmail}</p>
+                <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${roleInfo.color}`}>
+                  {roleInfo.label}
+                </span>
+              </div>
+
+              <button
+                onClick={() => { setIsUserMenuOpen(false); if (onLoginClick) onLoginClick(); }}
+                className="w-full text-left px-3 py-2 rounded-xl text-gray-300 hover:text-white hover:bg-white/10 transition flex items-center gap-2"
+              >
+                🔐 Iniciar Sesión / Cambiar Cuenta
+              </button>
+
+              <button
+                onClick={() => { setIsUserMenuOpen(false); if (onLogoutClick) onLogoutClick(); }}
+                className="w-full text-left px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/15 transition flex items-center gap-2 font-semibold"
+              >
+                🚪 Cerrar Sesión
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
   );
 };
-

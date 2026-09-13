@@ -4,15 +4,57 @@ import React, { useState } from 'react';
 import { Navbar } from '@/components/ui/Navbar';
 import { Sidebar } from '@/components/ui/Sidebar';
 import { StatCard, Modal } from '@/components/ui/StatCard';
+import { AuthModal } from '@/components/ui/AuthModal';
+import { NotificationsModal, NotificationItem } from '@/components/ui/NotificationsModal';
 
 export default function HomePage() {
-  const [currentRole] = useState<string>('owner'); // Default role: owner/director
+  // Auth State
+  const [currentUser, setCurrentUser] = useState({
+    name: 'Óscar Director',
+    email: 'director@plazadance.com',
+    role: 'owner',
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+
+  // App Navigation & UI State
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [modalType, setModalType] = useState<string>('');
+  const [toastMessage, setToastMessage] = useState<string>('');
 
-  // Sample State Data for Dynamic UI Testing
+  // Notifications State
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([
+    {
+      id: 'n1',
+      title: 'Reserva Confirmada',
+      message: 'Elena Gómez ha reservado plaza en Salsa Cubana (Hoy 19:00).',
+      time: 'Hace 5 min',
+      type: 'reservation',
+      read: false,
+    },
+    {
+      id: 'n2',
+      title: 'Nuevo Reto Entregado',
+      message: 'Roberto Fernández subió un vídeo para el reto: Onda Sensual Bachata.',
+      time: 'Hace 30 min',
+      type: 'quest',
+      read: false,
+    },
+    {
+      id: 'n3',
+      title: 'Pago Recibido "A Cuenta"',
+      message: 'Cobro de 40€ registrado en recepción para bono 10 clases.',
+      time: 'Hace 2 horas',
+      type: 'payment',
+      read: true,
+    },
+  ]);
+
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
+
+  // Sample Data for Modules
   const [programs, setPrograms] = useState([
     { id: 'p1', name: 'Salsa Cubana y Rueda de Casino', discipline: 'Salsa', level: 'Intermedio', modulesCount: 6, xpPoints: 120 },
     { id: 'p2', name: 'Bachata Sensual & Flow', discipline: 'Bachata', level: 'Avanzado', modulesCount: 8, xpPoints: 180 },
@@ -47,6 +89,7 @@ export default function HomePage() {
     { id: 'm5', name: 'Roberto Fernández', email: 'roberto@email.com', role: 'student', status: 'Pendiente' },
   ]);
 
+  // Form States
   const [newProgramName, setNewProgramName] = useState('');
   const [newProgramDiscipline, setNewProgramDiscipline] = useState('Salsa');
   const [newProgramLevel, setNewProgramLevel] = useState('Iniciación');
@@ -55,9 +98,30 @@ export default function HomePage() {
   const [newPostContent, setNewPostContent] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState('student');
-  const [reservationMessage, setReservationMessage] = useState('');
 
-  // Handle Quick Reservation Simulation (Atomic Concurrency Rule Test UI)
+  // Handle Logout
+  const handleLogout = () => {
+    setCurrentUser({
+      name: 'Invitado',
+      email: 'sin-sesion@plazadance.com',
+      role: 'student',
+    });
+    setToastMessage('🚪 Sesión cerrada correctamente.');
+    setIsAuthModalOpen(true);
+  };
+
+  // Handle Auth Login/Register Success
+  const handleAuthSuccess = (user: { name: string; email: string; role: string }) => {
+    setCurrentUser(user);
+    setToastMessage(`👋 ¡Bienvenido de nuevo, ${user.name}! (Rol: ${user.role})`);
+  };
+
+  // Handle Mark Notifications as Read
+  const handleMarkNotificationsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  // Handle Atomic Reservation
   const handleReserve = (sessionId: string) => {
     const target = sessions.find((s) => s.id === sessionId);
     if (!target) return;
@@ -66,16 +130,16 @@ export default function HomePage() {
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, confirmed: s.confirmed + 1 } : s))
       );
-      setReservationMessage(`✅ Reserva CONFIRMADA para "${target.name}". ¡Plaza asegurada en Supabase!`);
+      setToastMessage(`✅ Reserva CONFIRMADA para "${target.name}". ¡Plaza asegurada!`);
     } else {
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, waitlist: s.waitlist + 1 } : s))
       );
-      setReservationMessage(`⚠️ Aforo lleno. Añadido a LISTA DE ESPERA en Posición #${target.waitlist + 1}.`);
+      setToastMessage(`⚠️ Aforo lleno. Añadido a LISTA DE ESPERA en Posición #${target.waitlist + 1}.`);
     }
   };
 
-  // Create New Program
+  // Create Program
   const handleCreateProgram = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProgramName.trim()) return;
@@ -93,10 +157,10 @@ export default function HomePage() {
     ]);
     setNewProgramName('');
     setIsModalOpen(false);
-    setReservationMessage(`🎉 Programa "${newProgramName}" creado con éxito.`);
+    setToastMessage(`🎉 Programa "${newProgramName}" creado con éxito.`);
   };
 
-  // Create New Quest
+  // Create Quest
   const handleCreateQuest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newQuestTitle.trim()) return;
@@ -109,12 +173,12 @@ export default function HomePage() {
         program: newProgramDiscipline,
         points: Number(newQuestPoints),
         status: 'submitted',
-        teacher: 'Óscar Director',
+        teacher: currentUser.name,
       },
     ]);
     setNewQuestTitle('');
     setIsModalOpen(false);
-    setReservationMessage(`🏆 Reto "${newQuestTitle}" publicado para los alumnos.`);
+    setToastMessage(`🏆 Reto "${newQuestTitle}" publicado.`);
   };
 
   // Create Post
@@ -125,8 +189,8 @@ export default function HomePage() {
     setCommunityPosts([
       {
         id: `c_${Date.now()}`,
-        user: 'Óscar Director',
-        role: 'DIRECTOR',
+        user: currentUser.name,
+        role: currentUser.role.toUpperCase(),
         time: 'Justo ahora',
         content: newPostContent,
         likes: 0,
@@ -154,34 +218,40 @@ export default function HomePage() {
     ]);
     setNewMemberEmail('');
     setIsModalOpen(false);
-    setReservationMessage(`📩 Invitación enviada a ${newMemberEmail}.`);
+    setToastMessage(`📩 Invitación enviada a ${newMemberEmail}.`);
   };
 
   return (
     <div className="min-h-screen bg-[#090D16] text-gray-100 flex flex-col font-sans">
       {/* Top Navigation */}
       <Navbar
-        currentRole={currentRole}
+        currentRole={currentUser.role}
+        userName={currentUser.name}
+        userEmail={currentUser.email}
+        unreadCount={unreadNotificationsCount}
+        onNotificationsClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+        onLoginClick={() => setIsAuthModalOpen(true)}
+        onLogoutClick={handleLogout}
         onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       />
 
       <div className="flex-1 flex">
         {/* Left Sidebar */}
         <Sidebar
-          currentRole={currentRole}
+          currentRole={currentUser.role}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
         />
 
-        {/* Main Content View Container */}
+        {/* Main Content Area */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
           {/* Global Toast Message */}
-          {reservationMessage && (
+          {toastMessage && (
             <div className="mb-6 p-4 rounded-xl bg-purple-900/40 border border-purple-500/50 text-purple-200 text-sm flex items-center justify-between animate-fade-in shadow-glow-violet">
-              <span>{reservationMessage}</span>
-              <button onClick={() => setReservationMessage('')} className="text-gray-400 hover:text-white font-bold ml-2">✕</button>
+              <span>{toastMessage}</span>
+              <button onClick={() => setToastMessage('')} className="text-gray-400 hover:text-white font-bold ml-2">✕</button>
             </div>
           )}
 
@@ -193,7 +263,6 @@ export default function HomePage() {
                 <p className="text-gray-400 text-sm mt-1">Gestión académica, aforos en tiempo real, facturación "a cuenta" y métricas de la escuela.</p>
               </div>
 
-              {/* KPI Stat Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
                 <StatCard title="Alumnos Activos" value="248" subtitle="En 14 grupos semanales" icon="👥" trend="+12%" trendUp={true} />
                 <StatCard title="Ocupación de Aforos" value="89%" subtitle="182 plazas reservadas de 204" icon="📊" trend="+5%" trendUp={true} />
@@ -201,7 +270,6 @@ export default function HomePage() {
                 <StatCard title="Pendiente de Cobro" value="620 €" subtitle="8 alumnos con saldo parcial" icon="⚠️" trend="-4%" trendUp={false} />
               </div>
 
-              {/* Live Session Capacity Overview */}
               <div className="glass-panel p-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                   <div>
@@ -226,7 +294,6 @@ export default function HomePage() {
                         </div>
                         <h3 className="font-heading font-bold text-lg text-white mb-2">{sess.name}</h3>
 
-                        {/* Capacity Progress Bar */}
                         <div className="space-y-1 mb-4">
                           <div className="flex justify-between text-xs text-gray-300">
                             <span>Aforo Ocupado:</span>
@@ -240,7 +307,6 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        {/* Role Breakdown */}
                         <div className="flex items-center justify-between text-xs text-gray-400 bg-gray-950 p-2.5 rounded-xl border border-gray-800">
                           <span>🕺 Líderes: <strong className="text-white">{sess.leaders}</strong></span>
                           <span>💃 Seguidores: <strong className="text-white">{sess.followers}</strong></span>
@@ -348,7 +414,6 @@ export default function HomePage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* QR Check-In Terminal Simulator */}
                 <div className="glass-panel p-6 flex flex-col justify-between">
                   <div>
                     <h2 className="font-heading font-bold text-lg text-white mb-2">Terminal Check-In QR</h2>
@@ -364,14 +429,13 @@ export default function HomePage() {
                   </div>
 
                   <button
-                    onClick={() => setReservationMessage('✅ Check-In COMPLETADO: Elena Gómez (Salsa Cubana - 19:00)')}
+                    onClick={() => setToastMessage('✅ Check-In COMPLETADO: Elena Gómez (Salsa Cubana - 19:00)')}
                     className="mt-6 btn-primary w-full justify-center"
                   >
                     Simular Lectura QR Exitosa
                   </button>
                 </div>
 
-                {/* Partial Payments "A Cuenta" Collector */}
                 <div className="glass-panel p-6">
                   <h2 className="font-heading font-bold text-lg text-white mb-2">Cobro "A Cuenta" (Saldos Pendientes)</h2>
                   <p className="text-xs text-gray-400 mb-4">Registro de entrega parcial de efectivo o tarjeta</p>
@@ -385,7 +449,7 @@ export default function HomePage() {
                       <div className="text-right">
                         <span className="badge badge-amber font-bold mb-1">Pendiente: 40€</span>
                         <button
-                          onClick={() => setReservationMessage('💶 Pago "a cuenta" registrado: 40€ añadidos. Pendiente: 0€ (COMPLETADO)')}
+                          onClick={() => setToastMessage('💶 Pago "a cuenta" registrado: 40€ añadidos. Pendiente: 0€ (COMPLETADO)')}
                           className="block text-xs text-purple-400 hover:text-purple-300 font-semibold mt-1"
                         >
                           Cobrar +40€
@@ -477,7 +541,7 @@ export default function HomePage() {
                               setQuests((prev) =>
                                 prev.map((item) => (item.id === q.id ? { ...item, status: 'approved' } : item))
                               );
-                              setReservationMessage(`🎉 Reto "${q.title}" APROBADO. Puntos sumados al alumno.`);
+                              setToastMessage(`🎉 Reto "${q.title}" APROBADO. Puntos sumados al alumno.`);
                             }}
                             className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition"
                           >
@@ -582,7 +646,22 @@ export default function HomePage() {
         </main>
       </div>
 
-      {/* Dynamic Modal Dialog Container */}
+      {/* Notifications Modal Popup */}
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        notifications={notifications}
+        onMarkAllAsRead={handleMarkNotificationsRead}
+      />
+
+      {/* Auth Modal (Login / Register / Fast Accounts) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+      />
+
+      {/* Dynamic Creation Modals */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={
         modalType === 'program' ? 'Crear Nuevo Programa' :
         modalType === 'quest' ? 'Crear Reto Pedagógico' :
