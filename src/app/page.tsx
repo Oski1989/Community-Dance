@@ -7,21 +7,42 @@ import { StatCard, Modal } from '@/components/ui/StatCard';
 import { AuthModal } from '@/components/ui/AuthModal';
 import { NotificationsModal, NotificationItem } from '@/components/ui/NotificationsModal';
 
+interface ModuleItem {
+  id: string;
+  title: string;
+  videoUrl: string;
+}
+
+interface ProgramItem {
+  id: string;
+  name: string;
+  discipline: string;
+  level: string;
+  description?: string;
+  modulesCount: number;
+  xpPoints: number;
+  modules: ModuleItem[];
+}
+
 export default function HomePage() {
   // Auth State
   const [currentUser, setCurrentUser] = useState({
-    name: 'Óscar Director',
-    email: 'director@plazadance.com',
-    role: 'owner',
+    name: 'Carlos Profesor',
+    email: 'profesor@plazadance.com',
+    role: 'teacher',
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   // App Navigation & UI State
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>('programs');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [modalType, setModalType] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string>('');
+
+  // Syllabus Program Editor Modal State
+  const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState<boolean>(false);
+  const [editingProgram, setEditingProgram] = useState<ProgramItem | null>(null);
 
   // Notifications State
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
@@ -54,26 +75,60 @@ export default function HomePage() {
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
-  // Sample Data for Modules
-  const [programs, setPrograms] = useState([
-    { id: 'p1', name: 'Salsa Cubana y Rueda de Casino', discipline: 'Salsa', level: 'Intermedio', modulesCount: 6, xpPoints: 120 },
-    { id: 'p2', name: 'Bachata Sensual & Flow', discipline: 'Bachata', level: 'Avanzado', modulesCount: 8, xpPoints: 180 },
-    { id: 'p3', name: 'Kizomba Fusion', discipline: 'Kizomba', level: 'Iniciación', modulesCount: 4, xpPoints: 90 },
-    { id: 'p4', name: 'Estilo Chica & Técnica Corporal', discipline: 'Lady Style', level: 'Todos los niveles', modulesCount: 5, xpPoints: 100 },
+  // Sample Data for Programs with Full Modules & Video Links
+  const [programs, setPrograms] = useState<ProgramItem[]>([
+    {
+      id: 'p1',
+      name: 'Salsa Cubana y Rueda de Casino',
+      discipline: 'Salsa',
+      level: 'Intermedio',
+      description: 'Estructura modular con vídeos de técnica de Rueda de Casino y paseos complejos.',
+      modulesCount: 3,
+      xpPoints: 120,
+      modules: [
+        { id: 'm1', title: 'Módulo 1: Paseo y Guapea con Estilo', videoUrl: 'https://youtube.com/watch?v=salsa_guapea_demo' },
+        { id: 'm2', title: 'Módulo 2: Enchufla Doble y Vacilala', videoUrl: 'https://youtube.com/watch?v=salsa_enchufla_demo' },
+        { id: 'm3', title: 'Módulo 3: Setenta y Cambios de Rueda', videoUrl: 'https://youtube.com/watch?v=salsa_setenta_demo' },
+      ],
+    },
+    {
+      id: 'p2',
+      name: 'Bachata Sensual & Flow',
+      discipline: 'Bachata',
+      level: 'Avanzado',
+      description: 'Técnica de aislamiento de torso, ondas corporales y conducción fluida en pareja.',
+      modulesCount: 2,
+      xpPoints: 180,
+      modules: [
+        { id: 'm10', title: 'Módulo 1: Disociación de Cadera y Torso', videoUrl: 'https://youtube.com/watch?v=bachata_ondulation' },
+        { id: 'm11', title: 'Módulo 2: Conducción en Onda Superior', videoUrl: 'https://youtube.com/watch?v=bachata_leading' },
+      ],
+    },
+    {
+      id: 'p3',
+      name: 'Kizomba Fusion',
+      discipline: 'Kizomba',
+      level: 'Iniciación',
+      description: 'Fundamentos de caminada, saídas laterales y conexión en abrazo cerrado.',
+      modulesCount: 2,
+      xpPoints: 90,
+      modules: [
+        { id: 'm20', title: 'Módulo 1: Caminada Básica en 3 Tiempos', videoUrl: 'https://youtube.com/watch?v=kizomba_caminada' },
+        { id: 'm21', title: 'Módulo 2: Saída Esquerda y Dirita', videoUrl: 'https://youtube.com/watch?v=kizomba_saida' },
+      ],
+    },
   ]);
 
   const [sessions, setSessions] = useState([
     { id: 's1', name: 'Salsa Cubana Nivel 2', time: 'Hoy 19:00 - 20:00', confirmed: 14, capacity: 16, leaders: 7, followers: 7, waitlist: 2 },
     { id: 's2', name: 'Bachata Sensual Parejas', time: 'Hoy 20:00 - 21:00', confirmed: 18, capacity: 18, leaders: 9, followers: 9, waitlist: 4 },
     { id: 's3', name: 'Kizomba Iniciación', time: 'Mañana 18:30 - 19:30', confirmed: 8, capacity: 14, leaders: 4, followers: 4, waitlist: 0 },
-    { id: 's4', name: 'Rueda de Casino Especial', time: 'Viernes 21:00 - 22:30', confirmed: 12, capacity: 20, leaders: 6, followers: 6, waitlist: 0 },
   ]);
 
   const [quests, setQuests] = useState([
-    { id: 'q1', title: 'Paso Básico Salsa en 8 Tiempos', program: 'Salsa Cubana', points: 20, status: 'approved', teacher: 'Carlos Pro' },
-    { id: 'q2', title: 'Onda Sensual Bachata sin Perder Ritmo', program: 'Bachata Sensual', points: 30, status: 'submitted', teacher: 'Laura Dance' },
-    { id: 'q3', title: 'Saida Esquerda Kizomba', program: 'Kizomba', points: 15, status: 'in_progress', teacher: 'Carlos Pro' },
-    { id: 'q4', title: 'Disociación de Torso y Cadera', program: 'Lady Style', points: 25, status: 'submitted', teacher: 'Elena Gómez' },
+    { id: 'q1', title: 'Paso Básico Salsa en 8 Tiempos', program: 'Salsa Cubana', points: 20, status: 'approved', teacher: 'Carlos Profesor' },
+    { id: 'q2', title: 'Onda Sensual Bachata sin Perder Ritmo', program: 'Bachata Sensual', points: 30, status: 'submitted', teacher: 'Carlos Profesor' },
+    { id: 'q3', title: 'Saida Esquerda Kizomba', program: 'Kizomba', points: 15, status: 'in_progress', teacher: 'Carlos Profesor' },
   ]);
 
   const [communityPosts, setCommunityPosts] = useState([
@@ -86,7 +141,6 @@ export default function HomePage() {
     { id: 'm2', name: 'Carlos Profesor', email: 'profesor@plazadance.com', role: 'teacher', status: 'Activo' },
     { id: 'm3', name: 'Laura Recepción', email: 'recepcion@plazadance.com', role: 'reception', status: 'Activo' },
     { id: 'm4', name: 'Elena Alumna', email: 'alumno@plazadance.com', role: 'student', status: 'Activo' },
-    { id: 'm5', name: 'Roberto Fernández', email: 'roberto@email.com', role: 'student', status: 'Pendiente' },
   ]);
 
   // Form States
@@ -97,7 +151,40 @@ export default function HomePage() {
   const [newQuestPoints, setNewQuestPoints] = useState(20);
   const [newPostContent, setNewPostContent] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState('student');
+  const [newMemberRole, setNewMemberRole] = useState('teacher');
+
+  // Handle Open Program Editor
+  const handleOpenProgramEditor = (prog: ProgramItem) => {
+    setEditingProgram({ ...prog, modules: [...prog.modules] });
+    setIsSyllabusModalOpen(true);
+  };
+
+  // Add Module to Editing Program
+  const handleAddModule = () => {
+    if (!editingProgram) return;
+    const newMod: ModuleItem = {
+      id: `m_${Date.now()}`,
+      title: `Módulo ${editingProgram.modules.length + 1}: Nuevos Pasos Técnicos`,
+      videoUrl: 'https://youtube.com/watch?v=ejemplo',
+    };
+    setEditingProgram({
+      ...editingProgram,
+      modules: [...editingProgram.modules, newMod],
+      modulesCount: editingProgram.modules.length + 1,
+    });
+  };
+
+  // Save Syllabus Changes
+  const handleSaveSyllabus = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProgram) return;
+
+    setPrograms((prev) =>
+      prev.map((p) => (p.id === editingProgram.id ? editingProgram : p))
+    );
+    setIsSyllabusModalOpen(false);
+    setToastMessage(`💾 Temario del programa "${editingProgram.name}" actualizado correctamente por el profesor.`);
+  };
 
   // Handle Logout
   const handleLogout = () => {
@@ -113,7 +200,7 @@ export default function HomePage() {
   // Handle Auth Login/Register Success
   const handleAuthSuccess = (user: { name: string; email: string; role: string }) => {
     setCurrentUser(user);
-    setToastMessage(`👋 ¡Bienvenido de nuevo, ${user.name}! (Rol: ${user.role})`);
+    setToastMessage(`👋 ¡Sesión iniciada como ${user.name}! (Rol: ${user.role})`);
   };
 
   // Handle Mark Notifications as Read
@@ -144,17 +231,21 @@ export default function HomePage() {
     e.preventDefault();
     if (!newProgramName.trim()) return;
 
-    setPrograms([
-      ...programs,
-      {
-        id: `p_${Date.now()}`,
-        name: newProgramName,
-        discipline: newProgramDiscipline,
-        level: newProgramLevel,
-        modulesCount: 4,
-        xpPoints: 100,
-      },
-    ]);
+    const newProg: ProgramItem = {
+      id: `p_${Date.now()}`,
+      name: newProgramName,
+      discipline: newProgramDiscipline,
+      level: newProgramLevel,
+      description: 'Nuevo temario curricular creado.',
+      modulesCount: 2,
+      xpPoints: 100,
+      modules: [
+        { id: `m1_${Date.now()}`, title: 'Módulo 1: Introducción y Pasos', videoUrl: 'https://youtube.com/demo' },
+        { id: `m2_${Date.now()}`, title: 'Módulo 2: Figuras y Ritmo', videoUrl: 'https://youtube.com/demo2' },
+      ],
+    };
+
+    setPrograms([...programs, newProg]);
     setNewProgramName('');
     setIsModalOpen(false);
     setToastMessage(`🎉 Programa "${newProgramName}" creado con éxito.`);
@@ -178,7 +269,7 @@ export default function HomePage() {
     ]);
     setNewQuestTitle('');
     setIsModalOpen(false);
-    setToastMessage(`🏆 Reto "${newQuestTitle}" publicado.`);
+    setToastMessage(`🏆 Reto "${newQuestTitle}" publicado para los alumnos.`);
   };
 
   // Create Post
@@ -245,7 +336,7 @@ export default function HomePage() {
           onMobileClose={() => setIsMobileMenuOpen(false)}
         />
 
-        {/* Main Content Area */}
+        {/* Main Content View Container */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
           {/* Global Toast Message */}
           {toastMessage && (
@@ -255,12 +346,68 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ─── 1. TAB: DASHBOARD (RESUMEN KPI) ─── */}
+          {/* ─── 1. TAB: PROGRAMAS & CLASES (EDICIÓN DOCENTE HABILITADA) ─── */}
+          {activeTab === 'programs' && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Programas & Diseñador de Temario</h1>
+                  <p className="text-gray-400 text-sm mt-1">Disciplinas de baile, árbol de niveles, módulos técnicos con vídeos y asignación de XP.</p>
+                </div>
+                {(currentUser.role === 'owner' || currentUser.role === 'teacher' || currentUser.role === 'admin') && (
+                  <button
+                    onClick={() => { setModalType('program'); setIsModalOpen(true); }}
+                    className="btn-primary text-xs"
+                  >
+                    + Nuevo Programa
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {programs.map((prog) => (
+                  <div key={prog.id} className="glass-panel p-6 flex flex-col justify-between hover:border-purple-500/40 transition">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="badge badge-cyan">{prog.discipline}</span>
+                        <span className="badge badge-purple">{prog.level}</span>
+                      </div>
+                      <h3 className="font-heading font-bold text-xl text-white mb-2">{prog.name}</h3>
+                      <p className="text-xs text-gray-400 mb-4">{prog.description}</p>
+
+                      {/* Video Modules List */}
+                      <div className="space-y-2 mb-4 bg-gray-950/70 p-3 rounded-xl border border-gray-800">
+                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Módulos del Temario ({prog.modules.length}):</p>
+                        {prog.modules.map((m) => (
+                          <div key={m.id} className="flex items-center justify-between text-xs text-gray-300">
+                            <span className="truncate pr-2">🎥 {m.title}</span>
+                            <a href={m.videoUrl} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline shrink-0 text-[11px]">Ver Vídeo ↗</a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
+                      <span className="text-xs text-amber-400 font-semibold">🏆 Recompensa: +{prog.xpPoints} XP</span>
+                      <button
+                        onClick={() => handleOpenProgramEditor(prog)}
+                        className="btn-primary text-xs py-1.5 px-3"
+                      >
+                        ✏️ Editar Temario & Vídeos
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── 2. TAB: DASHBOARD ─── */}
           {activeTab === 'dashboard' && (
             <div className="space-y-8 animate-fade-in">
               <div>
-                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Panel de Dirección</h1>
-                <p className="text-gray-400 text-sm mt-1">Gestión académica, aforos en tiempo real, facturación "a cuenta" y métricas de la escuela.</p>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Panel de Gestión</h1>
+                <p className="text-gray-400 text-sm mt-1">Gestión académica, aforos en tiempo real y facturación de la escuela.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -268,101 +415,6 @@ export default function HomePage() {
                 <StatCard title="Ocupación de Aforos" value="89%" subtitle="182 plazas reservadas de 204" icon="📊" trend="+5%" trendUp={true} />
                 <StatCard title="Recaudación Mes" value="14.850 €" subtitle="Cobros totales + 'A cuenta'" icon="💳" trend="+18%" trendUp={true} />
                 <StatCard title="Pendiente de Cobro" value="620 €" subtitle="8 alumnos con saldo parcial" icon="⚠️" trend="-4%" trendUp={false} />
-              </div>
-
-              <div className="glass-panel p-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="font-heading font-bold text-xl text-white">Próximas Clases y Aforos Atómicos</h2>
-                    <p className="text-xs text-gray-400">Control transaccional en PostgreSQL contra sobreventas (Líderes / Seguidores)</p>
-                  </div>
-                  <button
-                    onClick={() => { setModalType('session'); setIsModalOpen(true); }}
-                    className="btn-primary text-xs shrink-0"
-                  >
-                    + Nueva Clase
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {sessions.map((sess) => (
-                    <div key={sess.id} className="p-5 rounded-2xl bg-gray-900/80 border border-gray-800 flex flex-col justify-between hover:border-purple-500/40 transition">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="badge badge-purple">{sess.time}</span>
-                          <span className="text-xs text-gray-400 font-mono">ID: {sess.id}</span>
-                        </div>
-                        <h3 className="font-heading font-bold text-lg text-white mb-2">{sess.name}</h3>
-
-                        <div className="space-y-1 mb-4">
-                          <div className="flex justify-between text-xs text-gray-300">
-                            <span>Aforo Ocupado:</span>
-                            <span className="font-bold">{sess.confirmed} / {sess.capacity}</span>
-                          </div>
-                          <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
-                              style={{ width: `${(sess.confirmed / sess.capacity) * 100}%` }}
-                            ></div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs text-gray-400 bg-gray-950 p-2.5 rounded-xl border border-gray-800">
-                          <span>🕺 Líderes: <strong className="text-white">{sess.leaders}</strong></span>
-                          <span>💃 Seguidores: <strong className="text-white">{sess.followers}</strong></span>
-                          <span>⏳ Espera: <strong className="text-amber-400">{sess.waitlist}</strong></span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleReserve(sess.id)}
-                        className="mt-4 w-full py-2.5 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/30 transition text-xs font-semibold"
-                      >
-                        Simular Reserva Atómica
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ─── 2. TAB: PROGRAMAS & CLASES ─── */}
-          {activeTab === 'programs' && (
-            <div className="space-y-8 animate-fade-in">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Programas & Diseñador de Temario</h1>
-                  <p className="text-gray-400 text-sm mt-1">Disciplinas de baile, árbol de niveles, módulos técnicos y asignación de puntos XP.</p>
-                </div>
-                <button
-                  onClick={() => { setModalType('program'); setIsModalOpen(true); }}
-                  className="btn-primary text-xs"
-                >
-                  + Nuevo Programa
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {programs.map((prog) => (
-                  <div key={prog.id} className="glass-panel p-6 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="badge badge-cyan">{prog.discipline}</span>
-                        <span className="badge badge-purple">{prog.level}</span>
-                      </div>
-                      <h3 className="font-heading font-bold text-xl text-white mb-2">{prog.name}</h3>
-                      <p className="text-xs text-gray-400 mb-4">
-                        Diseño curricular pedagógico estructurado en {prog.modulesCount} módulos secuenciales con vídeos de técnica.
-                      </p>
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
-                      <span className="text-xs text-amber-400 font-semibold">🏆 Recompensa: +{prog.xpPoints} XP</span>
-                      <button className="btn-secondary text-xs">Editar Temario</button>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           )}
@@ -372,7 +424,7 @@ export default function HomePage() {
             <div className="space-y-8 animate-fade-in">
               <div>
                 <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Gestión de Reservas & Control de Aforos</h1>
-                <p className="text-gray-400 text-sm mt-1">Control de asistencia por pareja, balance de roles y gestión de lista de espera.</p>
+                <p className="text-gray-400 text-sm mt-1">Control de asistencia por pareja y gestión de lista de espera.</p>
               </div>
 
               <div className="glass-panel p-6 space-y-4">
@@ -405,68 +457,31 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ─── 4. TAB: ASISTENCIA & CHECK-IN ─── */}
+          {/* ─── 4. TAB: ASISTENCIA ─── */}
           {activeTab === 'attendance' && (
             <div className="space-y-8 animate-fade-in">
               <div>
-                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Recepción & Check-In QR</h1>
-                <p className="text-gray-400 text-sm mt-1">Lector de código QR en puerta, cobros parciales "a cuenta" y marcas de asistencia.</p>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Pasar Asistencia & Check-In</h1>
+                <p className="text-gray-400 text-sm mt-1">Lector de código QR y pase de lista de alumnos por grupo.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="glass-panel p-6 flex flex-col justify-between">
-                  <div>
-                    <h2 className="font-heading font-bold text-lg text-white mb-2">Terminal Check-In QR</h2>
-                    <p className="text-xs text-gray-400 mb-6">Escanea el código QR del alumno desde su móvil o introduce ID</p>
-
-                    <div className="p-8 rounded-2xl bg-gray-950 border-2 border-dashed border-purple-500/40 flex flex-col items-center justify-center text-center space-y-3">
-                      <div className="w-16 h-16 rounded-2xl bg-purple-600/20 text-purple-400 flex items-center justify-center text-3xl animate-bounce">
-                        📱
-                      </div>
-                      <p className="font-semibold text-white text-sm">Escáner de Cámara Listo</p>
-                      <p className="text-xs text-gray-500">Apunta la cámara al código QR para validar reserva instantánea</p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setToastMessage('✅ Check-In COMPLETADO: Elena Gómez (Salsa Cubana - 19:00)')}
-                    className="mt-6 btn-primary w-full justify-center"
-                  >
-                    Simular Lectura QR Exitosa
-                  </button>
-                </div>
-
-                <div className="glass-panel p-6">
-                  <h2 className="font-heading font-bold text-lg text-white mb-2">Cobro "A Cuenta" (Saldos Pendientes)</h2>
-                  <p className="text-xs text-gray-400 mb-4">Registro de entrega parcial de efectivo o tarjeta</p>
-
-                  <div className="space-y-3">
-                    <div className="p-4 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-white text-sm">Roberto Fernández</p>
-                        <p className="text-xs text-gray-400">Bono 10 Clases • Total: 90€ | Pagado: 50€</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="badge badge-amber font-bold mb-1">Pendiente: 40€</span>
-                        <button
-                          onClick={() => setToastMessage('💶 Pago "a cuenta" registrado: 40€ añadidos. Pendiente: 0€ (COMPLETADO)')}
-                          className="block text-xs text-purple-400 hover:text-purple-300 font-semibold mt-1"
-                        >
-                          Cobrar +40€
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div className="glass-panel p-6">
+                <h2 className="font-heading font-bold text-lg text-white mb-2">Terminal de Lectura QR</h2>
+                <button
+                  onClick={() => setToastMessage('✅ Check-In COMPLETADO: Elena Gómez (Salsa Cubana - 19:00)')}
+                  className="btn-primary text-xs mt-3"
+                >
+                  Simular Escaneo de Código QR
+                </button>
               </div>
             </div>
           )}
 
-          {/* ─── 5. TAB: PAGOS & BONOS ─── */}
+          {/* ─── 5. TAB: PAGOS ─── */}
           {activeTab === 'payments' && (
             <div className="space-y-8 animate-fade-in">
               <div>
-                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Pagos, Bonos & Finanzas</h1>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Pagos & Bonos</h1>
                 <p className="text-gray-400 text-sm mt-1">Control de suscripciones, bono de 10 clases y cobros fraccionados "a cuenta".</p>
               </div>
 
@@ -475,24 +490,6 @@ export default function HomePage() {
                   <span className="badge badge-emerald">Bono 10 Clases</span>
                   <h3 className="font-bold text-xl text-white">Salsa & Bachata Pack</h3>
                   <p className="text-3xl font-extrabold text-white">90 €</p>
-                  <p className="text-xs text-gray-400">Válido durante 60 días desde la primera clase.</p>
-                  <button className="btn-primary w-full text-xs mt-2">Asignar a Alumno</button>
-                </div>
-
-                <div className="glass-panel p-6 space-y-3">
-                  <span className="badge badge-purple">Mensualidad</span>
-                  <h3 className="font-bold text-xl text-white">Tarifa Plana Completa</h3>
-                  <p className="text-3xl font-extrabold text-white">65 € <span className="text-xs font-normal text-gray-400">/mes</span></p>
-                  <p className="text-xs text-gray-400">Acceso ilimitado a todos los grupos de la escuela.</p>
-                  <button className="btn-primary w-full text-xs mt-2">Asignar a Alumno</button>
-                </div>
-
-                <div className="glass-panel p-6 space-y-3">
-                  <span className="badge badge-amber">Saldos Pendientes</span>
-                  <h3 className="font-bold text-xl text-white">Pendientes "A Cuenta"</h3>
-                  <p className="text-3xl font-extrabold text-amber-400">620 €</p>
-                  <p className="text-xs text-gray-400">Total acumulado a cobrar en recepción esta semana.</p>
-                  <button className="btn-secondary w-full text-xs mt-2">Ver Lista Pendientes</button>
                 </div>
               </div>
             </div>
@@ -586,9 +583,6 @@ export default function HomePage() {
                       <span className="text-xs text-gray-500">{post.time}</span>
                     </div>
                     <p className="text-sm text-gray-300">{post.content}</p>
-                    <div className="flex items-center gap-2 pt-2 text-xs text-gray-400">
-                      <button className="hover:text-pink-400 transition">❤️ {post.likes} Me gusta</button>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -601,7 +595,7 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Miembros & Equipo de la Escuela</h1>
-                  <p className="text-gray-400 text-sm mt-1">Gestión de usuarios y asignación de roles (Directores, Profesores, Recepción, Alumnos).</p>
+                  <p className="text-gray-400 text-sm mt-1">Gestión de usuarios y asignación de roles.</p>
                 </div>
                 <button
                   onClick={() => { setModalType('member'); setIsModalOpen(true); }}
@@ -654,12 +648,129 @@ export default function HomePage() {
         onMarkAllAsRead={handleMarkNotificationsRead}
       />
 
-      {/* Auth Modal (Login / Register / Fast Accounts) */}
+      {/* Auth Modal (Login / Register / Social Google & Facebook) */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={handleAuthSuccess}
       />
+
+      {/* ─── PROGRAM & SYLLABUS EDITOR MODAL FOR TEACHERS & DIRECTORS ─── */}
+      {editingProgram && (
+        <Modal
+          isOpen={isSyllabusModalOpen}
+          onClose={() => setIsSyllabusModalOpen(false)}
+          title={`✏️ Editar Temario: ${editingProgram.name}`}
+        >
+          <form onSubmit={handleSaveSyllabus} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Nombre del Programa</label>
+              <input
+                type="text"
+                value={editingProgram.name}
+                onChange={(e) => setEditingProgram({ ...editingProgram, name: e.target.value })}
+                className="form-input"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Disciplina</label>
+                <input
+                  type="text"
+                  value={editingProgram.discipline}
+                  onChange={(e) => setEditingProgram({ ...editingProgram, discipline: e.target.value })}
+                  className="form-input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Nivel</label>
+                <input
+                  type="text"
+                  value={editingProgram.level}
+                  onChange={(e) => setEditingProgram({ ...editingProgram, level: e.target.value })}
+                  className="form-input"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Descripción del Temario</label>
+              <textarea
+                value={editingProgram.description || ''}
+                onChange={(e) => setEditingProgram({ ...editingProgram, description: e.target.value })}
+                className="form-input h-20 resize-none text-xs"
+              ></textarea>
+            </div>
+
+            {/* Modules & Videos List Editor */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-white uppercase tracking-wider">Módulos & Vídeos de Técnica ({editingProgram.modules.length}):</label>
+                <button
+                  type="button"
+                  onClick={handleAddModule}
+                  className="text-xs text-purple-400 hover:text-purple-300 font-semibold"
+                >
+                  + Añadir Módulo
+                </button>
+              </div>
+
+              {editingProgram.modules.map((m, idx) => (
+                <div key={m.id} className="p-3 rounded-xl bg-gray-950 border border-gray-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-purple-300">Módulo #{idx + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = editingProgram.modules.filter((item) => item.id !== m.id);
+                        setEditingProgram({ ...editingProgram, modules: updated, modulesCount: updated.length });
+                      }}
+                      className="text-xs text-rose-400 hover:text-rose-300 font-semibold"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={m.title}
+                    onChange={(e) => {
+                      const updated = editingProgram.modules.map((item) =>
+                        item.id === m.id ? { ...item, title: e.target.value } : item
+                      );
+                      setEditingProgram({ ...editingProgram, modules: updated });
+                    }}
+                    placeholder="Título del Módulo"
+                    className="form-input text-xs"
+                  />
+
+                  <input
+                    type="text"
+                    value={m.videoUrl}
+                    onChange={(e) => {
+                      const updated = editingProgram.modules.map((item) =>
+                        item.id === m.id ? { ...item, videoUrl: e.target.value } : item
+                      );
+                      setEditingProgram({ ...editingProgram, modules: updated });
+                    }}
+                    placeholder="URL del Vídeo (YouTube, Vimeo, Drive...)"
+                    className="form-input text-xs"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
+              <button type="button" onClick={() => setIsSyllabusModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
+              <button type="submit" className="btn-primary text-xs">💾 Guardar Cambios en Temario</button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* Dynamic Creation Modals */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={
@@ -795,13 +906,6 @@ export default function HomePage() {
               <button type="submit" className="btn-primary text-xs">Enviar Invitación</button>
             </div>
           </form>
-        )}
-
-        {modalType === 'session' && (
-          <div className="text-center py-4 space-y-3">
-            <p className="text-sm text-gray-300">Nueva sesión en proceso de programación en calendario.</p>
-            <button onClick={() => setIsModalOpen(false)} className="btn-primary text-xs">Cerrar</button>
-          </div>
         )}
       </Modal>
     </div>
