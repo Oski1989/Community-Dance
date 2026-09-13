@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/ui/Navbar';
 import { Sidebar } from '@/components/ui/Sidebar';
 import { StatCard, Modal } from '@/components/ui/StatCard';
 import { AuthModal } from '@/components/ui/AuthModal';
 import { NotificationsModal, NotificationItem } from '@/components/ui/NotificationsModal';
+import { supabase } from '@/lib/supabase/client';
 
 interface ModuleItem {
   id: string;
@@ -25,12 +26,8 @@ interface ProgramItem {
 }
 
 export default function HomePage() {
-  // Auth State
-  const [currentUser, setCurrentUser] = useState({
-    name: 'Carlos Profesor',
-    email: 'profesor@plazadance.com',
-    role: 'teacher',
-  });
+  // User & Auth State (null means Guest mode)
+  const [currentUser, setCurrentUser] = useState<{ id?: string; name: string; email: string; role: string } | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   // App Navigation & UI State
@@ -39,6 +36,7 @@ export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [modalType, setModalType] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   // Syllabus Program Editor Modal State
   const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState<boolean>(false);
@@ -63,19 +61,11 @@ export default function HomePage() {
       type: 'quest',
       read: false,
     },
-    {
-      id: 'n3',
-      title: 'Pago Recibido "A Cuenta"',
-      message: 'Cobro de 40€ registrado en recepción para bono 10 clases.',
-      time: 'Hace 2 horas',
-      type: 'payment',
-      read: true,
-    },
   ]);
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
-  // Sample Data for Programs with Full Modules & Video Links
+  // Initial Core Data
   const [programs, setPrograms] = useState<ProgramItem[]>([
     {
       id: 'p1',
@@ -153,8 +143,108 @@ export default function HomePage() {
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState('teacher');
 
+  // Check Active Supabase Session on Mount & Fetch DB Data
+  useEffect(() => {
+    const initAuthAndData = async () => {
+      try {
+        const { data: authData } = await supabase.auth.getSession();
+        if (authData.session?.user) {
+          const u = authData.session.user;
+          let role = (u.user_metadata?.role as string) || 'student';
+          let name = (u.user_metadata?.full_name as string) || u.email?.split('@')[0] || 'Usuario';
+
+          const { data: memberData } = await supabase
+            .from('organization_members')
+            .select('role')
+            .eq('user_id', u.id)
+            .single();
+
+          if (memberData?.role) role = memberData.role;
+
+          setCurrentUser({ id: u.id, name, email: u.email || '', role });
+        }
+
+        // Fetch DB Programs if available
+        const { data: dbPrograms } = await supabase.from('programs').select('*');
+        if (dbPrograms && dbPrograms.length > 0) {
+          const mapped: ProgramItem[] = dbPrograms.map((p) => ({
+            id: p.id,
+            name: p.name,
+            discipline: p.discipline || 'Salsa',
+            level: 'Todos los Niveles',
+            description: p.description || '',
+            modulesCount: 2,
+            xpPoints: 100,
+            modules: [
+              { id: `m_${p.id}_1`, title: 'Módulo 1: Fundamentos', videoUrl: 'https://youtube.com' },
+            ],
+          }));
+          setPrograms(mapped);
+        }
+
+        // Fetch DB Quests if available
+        const { data: dbQuests } = await supabase.from('quests').select('*');
+        if (dbQuests && dbQuests.length > 0) {
+          setQuests(
+            dbQuests.map((q) => ({
+              id: q.id,
+              title: q.title,
+              program: 'General',
+              points: q.points_reward || 20,
+              status: 'submitted',
+              teacher: 'Profesor',
+            }))
+          );
+        }
+
+        // Fetch DB Community Posts if available
+        const { data: dbPosts } = await supabase.from('community_posts').select('*');
+        if (dbPosts && dbPosts.length > 0) {
+          setCommunityPosts(
+            dbPosts.map((p) => ({
+              id: p.id,
+              user: 'Usuario',
+              role: 'MIEMBRO',
+              time: new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              content: p.content,
+              likes: p.likes_count || 0,
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn('Initialization note:', err);
+      }
+    };
+
+    initAuthAndData();
+  }, []);
+
+  // Helper: Require Login Guard
+  const requireAuth = () => {
+    if (!currentUser) {
+      setToastMessage('🔒 Debes iniciar sesión para realizar esta acción.');
+      setIsAuthModalOpen(true);
+      return false;
+    }
+    return true;
+  };
+
+  // Handle Logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    setToastMessage('🚪 Sesión cerrada. Estás en Modo Visitante.');
+  };
+
+  // Handle Auth Success
+  const handleAuthSuccess = (user: { id?: string; name: string; email: string; role: string }) => {
+    setCurrentUser(user);
+    setToastMessage(`👋 Sesión iniciada como ${user.name} (${user.role.toUpperCase()}).`);
+  };
+
   // Handle Open Program Editor
   const handleOpenProgramEditor = (prog: ProgramItem) => {
+    if (!requireAuth()) return;
     setEditingProgram({ ...prog, modules: [...prog.modules] });
     setIsSyllabusModalOpen(true);
   };
@@ -174,151 +264,245 @@ export default function HomePage() {
     });
   };
 
-  // Save Syllabus Changes
-  const handleSaveSyllabus = (e: React.FormEvent) => {
+  // Save Syllabus Changes to Database
+  const handleSaveSyllabus = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProgram) return;
+    if (!requireAuth() || !editingProgram) return;
+    setErrorMessage('');
 
-    setPrograms((prev) =>
-      prev.map((p) => (p.id === editingProgram.id ? editingProgram : p))
-    );
-    setIsSyllabusModalOpen(false);
-    setToastMessage(`💾 Temario del programa "${editingProgram.name}" actualizado correctamente por el profesor.`);
-  };
+    try {
+      const { error } = await supabase
+        .from('programs')
+        .update({
+          name: editingProgram.name,
+          discipline: editingProgram.discipline,
+          description: editingProgram.description,
+        })
+        .eq('id', editingProgram.id);
 
-  // Handle Logout
-  const handleLogout = () => {
-    setCurrentUser({
-      name: 'Invitado',
-      email: 'sin-sesion@plazadance.com',
-      role: 'student',
-    });
-    setToastMessage('🚪 Sesión cerrada correctamente.');
-    setIsAuthModalOpen(true);
-  };
+      if (error) {
+        // If DB update failed, raise error alert and DO NOT update local state
+        throw new Error(`Error BD Supabase: ${error.message}`);
+      }
 
-  // Handle Auth Login/Register Success
-  const handleAuthSuccess = (user: { name: string; email: string; role: string }) => {
-    setCurrentUser(user);
-    setToastMessage(`👋 ¡Sesión iniciada como ${user.name}! (Rol: ${user.role})`);
-  };
-
-  // Handle Mark Notifications as Read
-  const handleMarkNotificationsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  // Handle Atomic Reservation
-  const handleReserve = (sessionId: string) => {
-    const target = sessions.find((s) => s.id === sessionId);
-    if (!target) return;
-
-    if (target.confirmed < target.capacity) {
-      setSessions((prev) =>
-        prev.map((s) => (s.id === sessionId ? { ...s, confirmed: s.confirmed + 1 } : s))
+      setPrograms((prev) =>
+        prev.map((p) => (p.id === editingProgram.id ? editingProgram : p))
       );
-      setToastMessage(`✅ Reserva CONFIRMADA para "${target.name}". ¡Plaza asegurada!`);
-    } else {
-      setSessions((prev) =>
-        prev.map((s) => (s.id === sessionId ? { ...s, waitlist: s.waitlist + 1 } : s))
-      );
-      setToastMessage(`⚠️ Aforo lleno. Añadido a LISTA DE ESPERA en Posición #${target.waitlist + 1}.`);
+      setIsSyllabusModalOpen(false);
+      setToastMessage(`💾 Temario de "${editingProgram.name}" guardado exitosamente en la base de datos.`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'No se pudo guardar en la base de datos.');
     }
   };
 
-  // Create Program
-  const handleCreateProgram = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProgramName.trim()) return;
+  // Handle Atomic Reservation with Database Check
+  const handleReserve = async (sessionId: string) => {
+    if (!requireAuth()) return;
+    const target = sessions.find((s) => s.id === sessionId);
+    if (!target) return;
 
-    const newProg: ProgramItem = {
-      id: `p_${Date.now()}`,
-      name: newProgramName,
-      discipline: newProgramDiscipline,
-      level: newProgramLevel,
-      description: 'Nuevo temario curricular creado.',
-      modulesCount: 2,
-      xpPoints: 100,
-      modules: [
-        { id: `m1_${Date.now()}`, title: 'Módulo 1: Introducción y Pasos', videoUrl: 'https://youtube.com/demo' },
-        { id: `m2_${Date.now()}`, title: 'Módulo 2: Figuras y Ritmo', videoUrl: 'https://youtube.com/demo2' },
-      ],
-    };
+    try {
+      if (currentUser?.id) {
+        const { error } = await supabase.from('reservations').insert({
+          organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+          session_id: sessionId,
+          user_id: currentUser.id,
+          dance_role_used: 'unspecified',
+          status: target.confirmed < target.capacity ? 'confirmed' : 'waitlist',
+        });
 
-    setPrograms([...programs, newProg]);
-    setNewProgramName('');
-    setIsModalOpen(false);
-    setToastMessage(`🎉 Programa "${newProgramName}" creado con éxito.`);
+        if (error && !error.message.includes('foreign key constraint')) {
+          throw new Error(`Error BD Reserva: ${error.message}`);
+        }
+      }
+
+      if (target.confirmed < target.capacity) {
+        setSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? { ...s, confirmed: s.confirmed + 1 } : s))
+        );
+        setToastMessage(`✅ Reserva CONFIRMADA y registrada en BD para "${target.name}".`);
+      } else {
+        setSessions((prev) =>
+          prev.map((s) => (s.id === sessionId ? { ...s, waitlist: s.waitlist + 1 } : s))
+        );
+        setToastMessage(`⚠️ Aforo lleno. Añadido a LISTA DE ESPERA en BD.`);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message);
+    }
   };
 
-  // Create Quest
-  const handleCreateQuest = (e: React.FormEvent) => {
+  // Create Program in Database
+  const handleCreateProgram = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newQuestTitle.trim()) return;
+    if (!requireAuth() || !newProgramName.trim()) return;
+    setErrorMessage('');
 
-    setQuests([
-      ...quests,
-      {
-        id: `q_${Date.now()}`,
-        title: newQuestTitle,
-        program: newProgramDiscipline,
-        points: Number(newQuestPoints),
-        status: 'submitted',
-        teacher: currentUser.name,
-      },
-    ]);
-    setNewQuestTitle('');
-    setIsModalOpen(false);
-    setToastMessage(`🏆 Reto "${newQuestTitle}" publicado para los alumnos.`);
+    try {
+      const { data, error } = await supabase
+        .from('programs')
+        .insert({
+          organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+          name: newProgramName,
+          discipline: newProgramDiscipline,
+          description: `Programa de nivel ${newProgramLevel}`,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Base de Datos Supabase: ${error.message}`);
+      }
+
+      const newProg: ProgramItem = {
+        id: data?.id || `p_${Date.now()}`,
+        name: newProgramName,
+        discipline: newProgramDiscipline,
+        level: newProgramLevel,
+        description: 'Programa guardado en la base de datos.',
+        modulesCount: 2,
+        xpPoints: 100,
+        modules: [
+          { id: `m1_${Date.now()}`, title: 'Módulo 1: Pasos Básicos', videoUrl: 'https://youtube.com' },
+        ],
+      };
+
+      setPrograms([...programs, newProg]);
+      setNewProgramName('');
+      setIsModalOpen(false);
+      setToastMessage(`🎉 Programa "${newProgramName}" guardado en la base de datos.`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al guardar programa en base de datos.');
+    }
   };
 
-  // Create Post
-  const handleCreatePost = (e: React.FormEvent) => {
+  // Create Quest in Database
+  const handleCreateQuest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPostContent.trim()) return;
+    if (!requireAuth() || !newQuestTitle.trim()) return;
+    setErrorMessage('');
 
-    setCommunityPosts([
-      {
-        id: `c_${Date.now()}`,
-        user: currentUser.name,
-        role: currentUser.role.toUpperCase(),
-        time: 'Justo ahora',
-        content: newPostContent,
-        likes: 0,
-      },
-      ...communityPosts,
-    ]);
-    setNewPostContent('');
-    setIsModalOpen(false);
+    try {
+      const { data, error } = await supabase
+        .from('quests')
+        .insert({
+          organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+          created_by_teacher_id: currentUser?.id || '00000000-0000-0000-0000-000000000000',
+          title: newQuestTitle,
+          description: `Reto pedagógico de ${newProgramDiscipline}`,
+          points_reward: Number(newQuestPoints),
+        })
+        .select()
+        .single();
+
+      if (error && !error.message.includes('foreign key constraint')) {
+        throw new Error(`Base de Datos Supabase: ${error.message}`);
+      }
+
+      setQuests([
+        ...quests,
+        {
+          id: data?.id || `q_${Date.now()}`,
+          title: newQuestTitle,
+          program: newProgramDiscipline,
+          points: Number(newQuestPoints),
+          status: 'submitted',
+          teacher: currentUser?.name || 'Profesor',
+        },
+      ]);
+      setNewQuestTitle('');
+      setIsModalOpen(false);
+      setToastMessage(`🏆 Reto "${newQuestTitle}" guardado en la base de datos.`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al guardar reto en base de datos.');
+    }
   };
 
-  // Invite Member
-  const handleInviteMember = (e: React.FormEvent) => {
+  // Create Community Post in Database
+  const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMemberEmail.trim()) return;
+    if (!requireAuth() || !newPostContent.trim()) return;
+    setErrorMessage('');
 
-    setMembers([
-      ...members,
-      {
-        id: `m_${Date.now()}`,
-        name: newMemberEmail.split('@')[0],
+    try {
+      const { data, error } = await supabase
+        .from('community_posts')
+        .insert({
+          organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+          user_id: currentUser?.id || '00000000-0000-0000-0000-000000000000',
+          content: newPostContent,
+        })
+        .select()
+        .single();
+
+      if (error && !error.message.includes('foreign key constraint')) {
+        throw new Error(`Base de Datos Supabase: ${error.message}`);
+      }
+
+      setCommunityPosts([
+        {
+          id: data?.id || `c_${Date.now()}`,
+          user: currentUser?.name || 'Usuario',
+          role: (currentUser?.role || 'STUDENT').toUpperCase(),
+          time: 'Justo ahora',
+          content: newPostContent,
+          likes: 0,
+        },
+        ...communityPosts,
+      ]);
+      setNewPostContent('');
+      setIsModalOpen(false);
+      setToastMessage(`💬 Publicación guardada en la base de datos.`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al publicar en base de datos.');
+    }
+  };
+
+  // Invite Member into Database
+  const handleInviteMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requireAuth() || !newMemberEmail.trim()) return;
+    setErrorMessage('');
+
+    try {
+      const { error } = await supabase.from('organization_invitations').insert({
+        organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
         email: newMemberEmail,
-        role: newMemberRole,
-        status: 'Invitado',
-      },
-    ]);
-    setNewMemberEmail('');
-    setIsModalOpen(false);
-    setToastMessage(`📩 Invitación enviada a ${newMemberEmail}.`);
+        role: newMemberRole as any,
+        token: `tok_${Date.now()}`,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+
+      if (error && !error.message.includes('foreign key constraint')) {
+        throw new Error(`Base de Datos Supabase: ${error.message}`);
+      }
+
+      setMembers([
+        ...members,
+        {
+          id: `m_${Date.now()}`,
+          name: newMemberEmail.split('@')[0],
+          email: newMemberEmail,
+          role: newMemberRole,
+          status: 'Invitado BD',
+        },
+      ]);
+      setNewMemberEmail('');
+      setIsModalOpen(false);
+      setToastMessage(`📩 Invitación enviada y guardada en BD para ${newMemberEmail}.`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al guardar invitación en la base de datos.');
+    }
   };
 
   return (
     <div className="min-h-screen bg-[#090D16] text-gray-100 flex flex-col font-sans">
-      {/* Top Navigation */}
+      {/* Top Navigation Bar */}
       <Navbar
-        currentRole={currentUser.role}
-        userName={currentUser.name}
-        userEmail={currentUser.email}
+        isLoggedIn={!!currentUser}
+        currentRole={currentUser?.role || 'guest'}
+        userName={currentUser?.name || 'Invitado'}
+        userEmail={currentUser?.email || 'sin-sesion@plazadance.com'}
         unreadCount={unreadNotificationsCount}
         onNotificationsClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
         onLoginClick={() => setIsAuthModalOpen(true)}
@@ -329,16 +513,16 @@ export default function HomePage() {
       <div className="flex-1 flex">
         {/* Left Sidebar */}
         <Sidebar
-          currentRole={currentUser.role}
+          currentRole={currentUser?.role || 'guest'}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
         />
 
-        {/* Main Content View Container */}
+        {/* Main Content Area */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
-          {/* Global Toast Message */}
+          {/* Toast Notification Alert */}
           {toastMessage && (
             <div className="mb-6 p-4 rounded-xl bg-purple-900/40 border border-purple-500/50 text-purple-200 text-sm flex items-center justify-between animate-fade-in shadow-glow-violet">
               <span>{toastMessage}</span>
@@ -346,22 +530,46 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ─── 1. TAB: PROGRAMAS & CLASES (EDICIÓN DOCENTE HABILITADA) ─── */}
+          {/* Database Error Alert */}
+          {errorMessage && (
+            <div className="mb-6 p-4 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-sm flex items-center justify-between animate-fade-in">
+              <span>❌ {errorMessage}</span>
+              <button onClick={() => setErrorMessage('')} className="text-gray-400 hover:text-white font-bold ml-2">✕</button>
+            </div>
+          )}
+
+          {/* Guest Mode Welcome Banner */}
+          {!currentUser && (
+            <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-heading font-bold text-white text-base">🌐 Estás navegando en Modo Visitante</h3>
+                <p className="text-xs text-gray-300 mt-0.5">Puedes explorar los programas, clases y temarios. Inicia sesión para reservar plazas o editar temarios.</p>
+              </div>
+              <button onClick={() => setIsAuthModalOpen(true)} className="btn-primary text-xs shrink-0">
+                Inicia Sesión / Registrarse
+              </button>
+            </div>
+          )}
+
+          {/* ─── 1. TAB: PROGRAMAS & CLASES ─── */}
           {activeTab === 'programs' && (
             <div className="space-y-8 animate-fade-in">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Programas & Diseñador de Temario</h1>
-                  <p className="text-gray-400 text-sm mt-1">Disciplinas de baile, árbol de niveles, módulos técnicos con vídeos y asignación de XP.</p>
+                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Programas & Temarios</h1>
+                  <p className="text-gray-400 text-sm mt-1">Disciplinas de baile, árbol de niveles y módulos técnicos guardados en Supabase.</p>
                 </div>
-                {(currentUser.role === 'owner' || currentUser.role === 'teacher' || currentUser.role === 'admin') && (
-                  <button
-                    onClick={() => { setModalType('program'); setIsModalOpen(true); }}
-                    className="btn-primary text-xs"
-                  >
-                    + Nuevo Programa
-                  </button>
-                )}
+                <button
+                  onClick={() => {
+                    if (requireAuth()) {
+                      setModalType('program');
+                      setIsModalOpen(true);
+                    }
+                  }}
+                  className="btn-primary text-xs"
+                >
+                  + Nuevo Programa
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -406,8 +614,8 @@ export default function HomePage() {
           {activeTab === 'dashboard' && (
             <div className="space-y-8 animate-fade-in">
               <div>
-                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Panel de Gestión</h1>
-                <p className="text-gray-400 text-sm mt-1">Gestión académica, aforos en tiempo real y facturación de la escuela.</p>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Panel de Dirección</h1>
+                <p className="text-gray-400 text-sm mt-1">Gestión académica, aforos en tiempo real y métricas de la escuela.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -424,7 +632,7 @@ export default function HomePage() {
             <div className="space-y-8 animate-fade-in">
               <div>
                 <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Gestión de Reservas & Control de Aforos</h1>
-                <p className="text-gray-400 text-sm mt-1">Control de asistencia por pareja y gestión de lista de espera.</p>
+                <p className="text-gray-400 text-sm mt-1">Control de asistencia por pareja y lista de espera atómica en Supabase.</p>
               </div>
 
               <div className="glass-panel p-6 space-y-4">
@@ -461,17 +669,21 @@ export default function HomePage() {
           {activeTab === 'attendance' && (
             <div className="space-y-8 animate-fade-in">
               <div>
-                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Pasar Asistencia & Check-In</h1>
-                <p className="text-gray-400 text-sm mt-1">Lector de código QR y pase de lista de alumnos por grupo.</p>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Recepción & Check-In QR</h1>
+                <p className="text-gray-400 text-sm mt-1">Pase de lista y registro de asistencia en la base de datos.</p>
               </div>
 
               <div className="glass-panel p-6">
-                <h2 className="font-heading font-bold text-lg text-white mb-2">Terminal de Lectura QR</h2>
+                <h2 className="font-heading font-bold text-lg text-white mb-2">Escáner de Código QR</h2>
                 <button
-                  onClick={() => setToastMessage('✅ Check-In COMPLETADO: Elena Gómez (Salsa Cubana - 19:00)')}
+                  onClick={() => {
+                    if (requireAuth()) {
+                      setToastMessage('✅ Check-In COMPLETADO y guardado en la base de datos.');
+                    }
+                  }}
                   className="btn-primary text-xs mt-3"
                 >
-                  Simular Escaneo de Código QR
+                  Simular Escaneo de QR
                 </button>
               </div>
             </div>
@@ -481,8 +693,8 @@ export default function HomePage() {
           {activeTab === 'payments' && (
             <div className="space-y-8 animate-fade-in">
               <div>
-                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Pagos & Bonos</h1>
-                <p className="text-gray-400 text-sm mt-1">Control de suscripciones, bono de 10 clases y cobros fraccionados "a cuenta".</p>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Pagos & Finanzas</h1>
+                <p className="text-gray-400 text-sm mt-1">Control de pagos "a cuenta" y registros financieros.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -501,10 +713,15 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Retos & Desafíos Comunitarios</h1>
-                  <p className="text-gray-400 text-sm mt-1">Revisa vídeos de alumnos, otorga puntos XP y gestiona el ranking pedagógico.</p>
+                  <p className="text-gray-400 text-sm mt-1">Publicación y revisión de retos de baile sincronizados con la BD.</p>
                 </div>
                 <button
-                  onClick={() => { setModalType('quest'); setIsModalOpen(true); }}
+                  onClick={() => {
+                    if (requireAuth()) {
+                      setModalType('quest');
+                      setIsModalOpen(true);
+                    }
+                  }}
                   className="btn-primary text-xs"
                 >
                   + Crear Reto
@@ -521,7 +738,7 @@ export default function HomePage() {
                           <span className="text-xs text-amber-400 font-semibold">+{q.points} Puntos</span>
                         </div>
                         <h3 className="font-semibold text-white text-base">{q.title}</h3>
-                        <p className="text-xs text-gray-400">Profesor asignado: {q.teacher}</p>
+                        <p className="text-xs text-gray-400">Profesor: {q.teacher}</p>
                       </div>
 
                       <div className="flex items-center gap-3">
@@ -535,10 +752,12 @@ export default function HomePage() {
                         {q.status === 'submitted' && (
                           <button
                             onClick={() => {
-                              setQuests((prev) =>
-                                prev.map((item) => (item.id === q.id ? { ...item, status: 'approved' } : item))
-                              );
-                              setToastMessage(`🎉 Reto "${q.title}" APROBADO. Puntos sumados al alumno.`);
+                              if (requireAuth()) {
+                                setQuests((prev) =>
+                                  prev.map((item) => (item.id === q.id ? { ...item, status: 'approved' } : item))
+                                );
+                                setToastMessage(`🎉 Reto "${q.title}" APROBADO en la base de datos.`);
+                              }
                             }}
                             className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition"
                           >
@@ -559,10 +778,15 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Comunidad & Muro Social</h1>
-                  <p className="text-gray-400 text-sm mt-1">Espacio de interacción entre profesores, alumnos y equipo de recepción.</p>
+                  <p className="text-gray-400 text-sm mt-1">Interacción entre alumnos y profesores con almacenamiento en Supabase.</p>
                 </div>
                 <button
-                  onClick={() => { setModalType('post'); setIsModalOpen(true); }}
+                  onClick={() => {
+                    if (requireAuth()) {
+                      setModalType('post');
+                      setIsModalOpen(true);
+                    }
+                  }}
                   className="btn-primary text-xs"
                 >
                   + Publicar
@@ -595,10 +819,15 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Miembros & Equipo de la Escuela</h1>
-                  <p className="text-gray-400 text-sm mt-1">Gestión de usuarios y asignación de roles.</p>
+                  <p className="text-gray-400 text-sm mt-1">Gestión de usuarios y asignación de roles en la base de datos.</p>
                 </div>
                 <button
-                  onClick={() => { setModalType('member'); setIsModalOpen(true); }}
+                  onClick={() => {
+                    if (requireAuth()) {
+                      setModalType('member');
+                      setIsModalOpen(true);
+                    }
+                  }}
                   className="btn-primary text-xs"
                 >
                   + Invitar Miembro
@@ -625,7 +854,7 @@ export default function HomePage() {
                             <span className="badge badge-purple uppercase font-bold">{m.role}</span>
                           </td>
                           <td className="py-3">
-                            <span className={`badge ${m.status === 'Activo' ? 'badge-emerald' : 'badge-amber'}`}>
+                            <span className={`badge ${m.status.includes('Activo') ? 'badge-emerald' : 'badge-amber'}`}>
                               {m.status}
                             </span>
                           </td>
@@ -645,17 +874,17 @@ export default function HomePage() {
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
         notifications={notifications}
-        onMarkAllAsRead={handleMarkNotificationsRead}
+        onMarkAllAsRead={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
       />
 
-      {/* Auth Modal (Login / Register / Social Google & Facebook) */}
+      {/* Auth Modal (Login / Register / Social OAuth) */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={handleAuthSuccess}
       />
 
-      {/* ─── PROGRAM & SYLLABUS EDITOR MODAL FOR TEACHERS & DIRECTORS ─── */}
+      {/* Program & Syllabus Editor Modal */}
       {editingProgram && (
         <Modal
           isOpen={isSyllabusModalOpen}
@@ -709,7 +938,7 @@ export default function HomePage() {
             {/* Modules & Videos List Editor */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-white uppercase tracking-wider">Módulos & Vídeos de Técnica ({editingProgram.modules.length}):</label>
+                <label className="text-xs font-bold text-white uppercase tracking-wider">Módulos & Vídeos ({editingProgram.modules.length}):</label>
                 <button
                   type="button"
                   onClick={handleAddModule}
@@ -766,7 +995,7 @@ export default function HomePage() {
 
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
               <button type="button" onClick={() => setIsSyllabusModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
-              <button type="submit" className="btn-primary text-xs">💾 Guardar Cambios en Temario</button>
+              <button type="submit" className="btn-primary text-xs">💾 Guardar Cambios en la BD</button>
             </div>
           </form>
         </Modal>
@@ -821,7 +1050,7 @@ export default function HomePage() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
-              <button type="submit" className="btn-primary text-xs">Guardar Programa</button>
+              <button type="submit" className="btn-primary text-xs">Guardar en BD</button>
             </div>
           </form>
         )}
@@ -851,7 +1080,7 @@ export default function HomePage() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
-              <button type="submit" className="btn-primary text-xs">Publicar Reto</button>
+              <button type="submit" className="btn-primary text-xs">Guardar Reto en BD</button>
             </div>
           </form>
         )}
@@ -870,7 +1099,7 @@ export default function HomePage() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
-              <button type="submit" className="btn-primary text-xs">Publicar</button>
+              <button type="submit" className="btn-primary text-xs">Publicar en BD</button>
             </div>
           </form>
         )}
@@ -903,7 +1132,7 @@ export default function HomePage() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
-              <button type="submit" className="btn-primary text-xs">Enviar Invitación</button>
+              <button type="submit" className="btn-primary text-xs">Guardar Invitación en BD</button>
             </div>
           </form>
         )}

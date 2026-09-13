@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase/client';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAuthSuccess: (user: { name: string; email: string; role: string }) => void;
+  onAuthSuccess: (user: { id?: string; name: string; email: string; role: string }) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess }) => {
@@ -14,7 +14,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [selectedRole, setSelectedRole] = useState('teacher');
+  const [selectedRole, setSelectedRole] = useState('student');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -34,21 +34,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       });
       if (error) throw error;
     } catch (err: any) {
-      // Fallback client simulation if OAuth provider redirect URL isn't configured in Supabase console yet
-      const demoEmail = provider === 'google' ? 'profesor.gmail@gmail.com' : 'profesor.facebook@facebook.com';
-      onAuthSuccess({
-        name: `${provider === 'google' ? 'Profesor Google' : 'Profesor Facebook'}`,
-        email: demoEmail,
-        role: 'teacher',
-      });
-      setSuccessMessage(`✅ Autenticado con ${provider === 'google' ? 'Google' : 'Facebook'} exitosamente.`);
-      setTimeout(() => onClose(), 800);
+      setErrorMessage(err.message || `Error al conectar con ${provider}. Verifique la configuración en Supabase.`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Login
+  // Handle Login with Supabase
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -61,42 +53,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         password,
       });
 
-      if (error) {
-        if (email.includes('@')) {
-          let role = 'teacher';
-          let name = fullName || email.split('@')[0];
-
-          if (email.includes('director') || email.includes('admin') || email.includes('owner')) role = 'owner';
-          else if (email.includes('profesor') || email.includes('teacher')) role = 'teacher';
-          else if (email.includes('recepcion') || email.includes('reception')) role = 'reception';
-          else if (email.includes('alumno') || email.includes('student')) role = 'student';
-
-          onAuthSuccess({
-            name: name.charAt(0).toUpperCase() + name.slice(1),
-            email,
-            role,
-          });
-          onClose();
-          return;
-        }
-        throw error;
-      }
+      if (error) throw error;
 
       if (data.user) {
-        let role = (data.user.user_metadata?.role as string) || 'teacher';
+        let role = (data.user.user_metadata?.role as string) || 'student';
         let name = (data.user.user_metadata?.full_name as string) || data.user.email?.split('@')[0] || 'Usuario';
 
-        onAuthSuccess({ name, email: data.user.email || email, role });
-        onClose();
+        // Check organization_members role if present in DB
+        const { data: memberData } = await supabase
+          .from('organization_members')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .single();
+
+        if (memberData?.role) {
+          role = memberData.role;
+        }
+
+        onAuthSuccess({
+          id: data.user.id,
+          name,
+          email: data.user.email || email,
+          role,
+        });
+        setSuccessMessage('¡Sesión iniciada correctamente!');
+        setTimeout(() => onClose(), 600);
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error al iniciar sesión. Revisa tus credenciales.');
+      setErrorMessage(err.message || 'Error al iniciar sesión. Revisa tu correo y contraseña.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Register (with persistence in Supabase tables)
+  // Handle Register in Supabase Database
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -117,49 +107,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
       if (error) throw error;
 
-      // Upsert profile in Supabase profiles & organization_members if user returned
       if (data.user) {
-        await supabase.from('profiles').upsert({
+        // Persist profile in Supabase profiles
+        const { error: profileErr } = await supabase.from('profiles').upsert({
           id: data.user.id,
           email: email,
           full_name: fullName,
         });
 
-        await supabase.from('organization_members').upsert({
-          organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-          user_id: data.user.id,
+        if (profileErr) {
+          console.warn('Profile upsert note:', profileErr.message);
+        }
+
+        onAuthSuccess({
+          id: data.user.id,
+          name: fullName || email.split('@')[0],
+          email,
           role: selectedRole,
         });
-      }
 
-      setSuccessMessage('¡Cuenta creada y guardada en la base de datos! Iniciando sesión...');
-      onAuthSuccess({
-        name: fullName || email.split('@')[0],
-        email,
-        role: selectedRole,
-      });
-      setTimeout(() => onClose(), 1000);
+        setSuccessMessage('¡Cuenta registrada con éxito en la base de datos! Bienvenido.');
+        setTimeout(() => onClose(), 800);
+      }
     } catch (err: any) {
-      // Fallback client registration for immediate responsiveness
-      onAuthSuccess({
-        name: fullName || email.split('@')[0],
-        email,
-        role: selectedRole,
-      });
-      setSuccessMessage('¡Cuenta creada e iniciada con éxito!');
-      setTimeout(() => onClose(), 800);
+      setErrorMessage(err.message || 'Error al registrar la cuenta en la base de datos.');
     } finally {
       setLoading(false);
     }
-  };
-
-  // Fast Demo Account Filler
-  const handleQuickFill = (demoEmail: string, demoRole: string, demoName: string) => {
-    setEmail(demoEmail);
-    setPassword('12345678');
-    setFullName(demoName);
-    setSelectedRole(demoRole);
-    setErrorMessage('');
   };
 
   return (
@@ -207,7 +181,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         {/* Global Feedback Alert Messages */}
         {errorMessage && (
           <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium">
-            ⚠️ {errorMessage}
+            ❌ {errorMessage}
           </div>
         )}
         {successMessage && (
@@ -245,12 +219,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
         <div className="relative flex items-center justify-center mb-5">
           <div className="border-t border-gray-800 w-full"></div>
-          <span className="bg-slate-950 px-3 text-[11px] text-gray-500 font-semibold uppercase shrink-0">o con correo</span>
+          <span className="bg-slate-950 px-3 text-[11px] text-gray-500 font-semibold uppercase shrink-0">o con tu correo</span>
         </div>
 
         {/* FORM: INICIAR SESIÓN */}
         {activeTab === 'login' && (
-          <form onSubmit={handleLogin} className="space-y-3.5">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1">Correo Electrónico</label>
               <input
@@ -266,7 +240,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-semibold text-gray-300">Contraseña</label>
-                <a href="#forgot" onClick={(e) => { e.preventDefault(); alert('Enlace de recuperación enviado.'); }} className="text-xs text-purple-400 hover:underline">
+                <a href="#forgot" onClick={(e) => { e.preventDefault(); alert('Enlace de recuperación enviado a tu correo.'); }} className="text-xs text-purple-400 hover:underline">
                   ¿Olvidaste clave?
                 </a>
               </div>
@@ -285,35 +259,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               disabled={loading}
               className="btn-primary w-full justify-center text-sm py-2.5 mt-2"
             >
-              {loading ? 'Entrando...' : 'Entrar a Plaza Dance'}
+              {loading ? 'Verificando con BD...' : 'Entrar a Plaza Dance'}
             </button>
-
-            {/* Quick Demo Accounts Selection */}
-            <div className="pt-3 border-t border-gray-800">
-              <p className="text-[10px] font-semibold text-gray-400 mb-2 text-center uppercase tracking-wider">Demostración Rápida 1-Clic:</p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => handleQuickFill('profesor@plazadance.com', 'teacher', 'Carlos Profesor')}
-                  className="p-2 rounded-lg bg-cyan-900/30 hover:bg-cyan-900/60 border border-cyan-500/30 text-cyan-300 text-left"
-                >
-                  👨‍🏫 Profesor
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickFill('director@plazadance.com', 'owner', 'Óscar Director')}
-                  className="p-2 rounded-lg bg-purple-900/30 hover:bg-purple-900/60 border border-purple-500/30 text-purple-300 text-left"
-                >
-                  👑 Director
-                </button>
-              </div>
-            </div>
           </form>
         )}
 
         {/* FORM: REGISTRO */}
         {activeTab === 'register' && (
-          <form onSubmit={handleRegister} className="space-y-3.5">
+          <form onSubmit={handleRegister} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-1">Nombre Completo</label>
               <input
@@ -327,12 +280,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">Correo Electrónico / Gmail</label>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Correo Electrónico</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu-correo@gmail.com"
+                placeholder="tu-correo@ejemplo.com"
                 className="form-input"
                 required
               />
@@ -358,10 +311,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
                 onChange={(e) => setSelectedRole(e.target.value)}
                 className="form-input"
               >
-                <option value="teacher">Profesor / Instructor de Baile</option>
-                <option value="owner">Director / Escuela</option>
+                <option value="student">Alumno / Estudiante</option>
+                <option value="teacher">Profesor / Instructor</option>
                 <option value="reception">Recepción</option>
-                <option value="student">Alumno</option>
+                <option value="owner">Director / Escuela</option>
               </select>
             </div>
 
@@ -370,7 +323,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               disabled={loading}
               className="btn-primary w-full justify-center text-sm py-2.5 mt-2"
             >
-              {loading ? 'Guardando en BD...' : 'Crear Cuenta y Guardar en BD'}
+              {loading ? 'Creando en Base de Datos...' : 'Crear Cuenta y Guardar en BD'}
             </button>
           </form>
         )}
