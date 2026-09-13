@@ -229,11 +229,19 @@ export default function HomePage() {
     return true;
   };
 
-  // Handle Logout
+  // Handle Logout (Complete Supabase & Storage Cleanup)
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('Sign-out notice:', err);
+    }
+    if (typeof window !== 'undefined') {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    }
     setCurrentUser(null);
-    setToastMessage('🚪 Sesión cerrada. Estás en Modo Visitante.');
+    setToastMessage('🚪 Sesión cerrada exitosamente. Estás en Modo Visitante.');
   };
 
   // Handle Auth Success

@@ -14,7 +14,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [selectedRole, setSelectedRole] = useState('teacher');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -34,7 +33,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       });
       if (error) throw error;
     } catch (err: any) {
-      setErrorMessage(err.message || `Error al conectar con ${provider}. Asegúrate de habilitar ${provider} en el panel de Supabase.`);
+      setErrorMessage(err.message || `Error al conectar con ${provider}. Verifique la configuración en el panel de Supabase.`);
     } finally {
       setLoading(false);
     }
@@ -54,24 +53,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       });
 
       if (error) {
-        // Fallback: If login with Supabase failed because account wasn't confirmed or was created during rate limit
-        if (email.trim() && password) {
-          onAuthSuccess({
-            name: email.split('@')[0],
-            email: email.trim(),
-            role: selectedRole,
-          });
-          setSuccessMessage('¡Acceso concedido!');
-          setTimeout(() => onClose(), 600);
-          return;
+        let msg = error.message;
+        if (msg.includes('Invalid login credentials')) {
+          msg = 'Credenciales incorrectas. Verifique su correo y contraseña o registre una cuenta.';
+        } else if (msg.includes('Email not confirmed')) {
+          msg = 'Su correo electrónico no ha sido verificado en Supabase.';
         }
-        throw error;
+        throw new Error(msg);
       }
 
       if (data.user) {
         let role = (data.user.user_metadata?.role as string) || 'student';
         let name = (data.user.user_metadata?.full_name as string) || data.user.email?.split('@')[0] || 'Usuario';
 
+        // Check organization_members role from DB
         const { data: memberData } = await supabase
           .from('organization_members')
           .select('role')
@@ -92,17 +87,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         setTimeout(() => onClose(), 600);
       }
     } catch (err: any) {
-      let msg = err.message || 'Error al iniciar sesión.';
-      if (msg.includes('Invalid login credentials')) {
-        msg = 'Credenciales incorrectas. Si es tu primera vez, crea la cuenta en la pestaña "Crear Cuenta".';
-      }
-      setErrorMessage(msg);
+      setErrorMessage(err.message || 'Error al conectar con la base de datos de Supabase.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Register in Supabase Database with Rate Limit Bypass
+  // Handle Register in Supabase Database (Public accounts default strictly to 'student')
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -113,53 +104,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
     const cleanName = fullName.trim() || cleanEmail.split('@')[0];
 
     try {
-      // 1. First check if we can log in directly (if user exists already)
-      const { data: directLogin } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
-
-      if (directLogin?.user) {
-        onAuthSuccess({
-          id: directLogin.user.id,
-          name: cleanName,
-          email: cleanEmail,
-          role: selectedRole,
-        });
-        setSuccessMessage('¡Sesión iniciada con éxito!');
-        setTimeout(() => onClose(), 600);
-        return;
-      }
-
-      // 2. Attempt Supabase Auth SignUp
+      // Call Supabase Auth SignUp (Role is strictly 'student' for public signups)
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
         password,
         options: {
           data: {
             full_name: cleanName,
-            role: selectedRole,
+            role: 'student',
           },
         },
       });
 
-      let userId = data?.user?.id;
-
-      // Handle Rate Limit Error gracefully
       if (error) {
-        if (error.message.includes('email rate limit exceeded')) {
-          console.warn('Supabase rate limit warning, proceeding with session access.');
-        } else if (error.message.includes('User already registered')) {
-          setErrorMessage('Este correo ya está registrado. Entra en "Iniciar Sesión".');
-          setLoading(false);
-          return;
-        } else {
-          console.warn('SignUp notice:', error.message);
+        let msg = error.message;
+        if (msg.includes('email rate limit exceeded')) {
+          msg = 'Supabase ha alcanzado el límite temporal de envío de emails. Para solucionar esto en Supabase Dashboard: Ve a Authentication > Providers > Email y desactiva "Confirm email".';
+        } else if (msg.includes('User already registered')) {
+          msg = 'Este correo electrónico ya está registrado. Por favor entra en "Iniciar Sesión".';
         }
+        throw new Error(msg);
       }
 
-      // 3. Upsert profile record in public.profiles if userId is available
+      const userId = data?.user?.id;
+
       if (userId) {
+        // Persist in profiles table
         await supabase.from('profiles').upsert({
           id: userId,
           email: cleanEmail,
@@ -167,25 +137,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         });
       }
 
-      // 4. Authenticate user into active app state
-      onAuthSuccess({
-        id: userId,
-        name: cleanName,
+      // Automatically sign in after signup
+      const { data: loginData, error: loginErr } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
-        role: selectedRole,
+        password,
       });
 
-      setSuccessMessage('¡Cuenta registrada e iniciada exitosamente!');
-      setTimeout(() => onClose(), 600);
-    } catch (err: any) {
-      // Fallback safe entrance
+      if (loginErr && !userId) {
+        throw new Error('Cuenta registrada en Supabase, pero requiere confirmación de email.');
+      }
+
+      const activeUserId = loginData?.user?.id || userId;
+
       onAuthSuccess({
+        id: activeUserId,
         name: cleanName,
         email: cleanEmail,
-        role: selectedRole,
+        role: 'student',
       });
-      setSuccessMessage('¡Acceso concedido!');
+
+      setSuccessMessage('¡Cuenta de alumno creada e iniciada exitosamente!');
       setTimeout(() => onClose(), 600);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'No se pudo completar el registro en la base de datos.');
     } finally {
       setLoading(false);
     }
@@ -210,7 +184,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           <h2 className="font-heading font-extrabold text-2xl text-white tracking-tight">
             PLAZA <span className="gradient-text-violet">DANCE</span>
           </h2>
-          <p className="text-xs text-gray-400 mt-1">Acceso a la plataforma de gestión de escuelas</p>
+          <p className="text-xs text-gray-400 mt-1">Acceso seguro a la plataforma de gestión de escuelas</p>
         </div>
 
         {/* Tabs: Login / Register */}
@@ -235,12 +209,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
         {/* Global Feedback Alert Messages */}
         {errorMessage && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium leading-relaxed">
-            ⚠️ {errorMessage}
+          <div className="mb-4 p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium leading-relaxed">
+            ❌ {errorMessage}
           </div>
         )}
         {successMessage && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-medium">
+          <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-medium">
             ✅ {successMessage}
           </div>
         )}
@@ -314,12 +288,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               disabled={loading}
               className="btn-primary w-full justify-center text-sm py-2.5 mt-2"
             >
-              {loading ? 'Verificando...' : 'Entrar a Plaza Dance'}
+              {loading ? 'Verificando con Supabase...' : 'Entrar a Plaza Dance'}
             </button>
           </form>
         )}
 
-        {/* FORM: REGISTRO */}
+        {/* FORM: REGISTRO PROFESIONAL (Sin selección arbitraria de rol) */}
         {activeTab === 'register' && (
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
@@ -359,18 +333,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">Rol de Cuenta</label>
-              <select
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-                className="form-input"
-              >
-                <option value="student">Alumno / Estudiante</option>
-                <option value="teacher">Profesor / Instructor</option>
-                <option value="reception">Recepción</option>
-                <option value="owner">Director / Escuela</option>
-              </select>
+            <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-800/40 text-[11px] text-gray-300 leading-relaxed">
+              💡 <strong>Nota de Seguridad:</strong> Las nuevas cuentas públicas se crean por defecto como <strong>Alumno</strong>. Los permisos de Profesor o Dirección son asignados por la administración de la escuela.
             </div>
 
             <button
@@ -378,7 +342,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               disabled={loading}
               className="btn-primary w-full justify-center text-sm py-2.5 mt-2"
             >
-              {loading ? 'Registrando en Supabase...' : 'Crear Cuenta y Guardar'}
+              {loading ? 'Registrando en Supabase...' : 'Crear Cuenta de Alumno'}
             </button>
           </form>
         )}
