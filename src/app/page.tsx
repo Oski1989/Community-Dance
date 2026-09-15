@@ -6,7 +6,6 @@ import { Sidebar } from '@/components/ui/Sidebar';
 import { StatCard, Modal } from '@/components/ui/StatCard';
 import { AuthModal } from '@/components/ui/AuthModal';
 import { NotificationsModal, NotificationItem } from '@/components/ui/NotificationsModal';
-import { PwaInstallBanner } from '@/components/ui/PwaInstallBanner';
 import { supabase } from '@/lib/supabase/client';
 
 interface ModuleItem {
@@ -28,8 +27,10 @@ interface ProgramItem {
 
 export default function HomePage() {
   // User & Auth State (null means Guest mode)
-  const [currentUser, setCurrentUser] = useState<{ id?: string; name: string; email: string; role: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; name: string; email: string; role: string; orgName?: string } | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isGuestBannerDismissed, setIsGuestBannerDismissed] = useState<boolean>(false);
+  const [activeOrgName, setActiveOrgName] = useState<string>('Escuela Plaza Dance Madrid');
 
   // App Navigation & UI State
   const [activeTab, setActiveTab] = useState<string>('programs');
@@ -127,13 +128,104 @@ export default function HomePage() {
     { id: 'c2', user: 'Carlos Profesor', role: 'PROFESOR', time: 'Hace 5 horas', content: 'Recordatorio a los alumnos de Salsa Intermedio: Ya tenéis activo el nuevo Reto de Rueda de Casino en la sección de Quests 💃', likes: 24 },
   ]);
 
-  const [members, setMembers] = useState([
-    { id: 'm1', name: 'Óscar Director', email: 'director@plazadance.com', role: 'owner', status: 'Activo', isPublic: true, discipline: 'Salsa & Bachata', avatar: '👨‍💼' },
-    { id: 'm2', name: 'Carlos Profesor', email: 'profesor@plazadance.com', role: 'teacher', status: 'Activo', isPublic: true, discipline: 'Salsa Cubana', avatar: '🕺' },
-    { id: 'm3', name: 'Laura Recepción', email: 'recepcion@plazadance.com', role: 'reception', status: 'Activo', isPublic: true, discipline: 'Gestión Escuela', avatar: '👩‍💼' },
-    { id: 'm4', name: 'Elena Alumna', email: 'alumno@plazadance.com', role: 'student', status: 'Activo', isPublic: true, discipline: 'Bachata Sensual', avatar: '💃' },
-    { id: 'm5', name: 'Roberto Fernández', email: 'roberto@email.com', role: 'student', status: 'Activo', isPublic: true, discipline: 'Kizomba Fusion', avatar: '🕺' },
-    { id: 'm6', name: 'Sofía Martínez', email: 'sofia@email.com', role: 'student', status: 'Activo', isPublic: false, discipline: 'Lady Style', avatar: '💃' },
+  const [members, setMembers] = useState<Array<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    status: string;
+    isPublic: boolean;
+    discipline: string;
+    danceRole?: string;
+    instagram?: string;
+    tiktok?: string;
+    bio?: string;
+    avatar?: string;
+  }>>([
+    {
+      id: 'm1',
+      name: 'Óscar Director',
+      email: 'director@plazadance.com',
+      role: 'owner',
+      status: 'Activo',
+      isPublic: true,
+      discipline: 'Salsa & Bachata',
+      danceRole: 'Leader & Follower',
+      instagram: '@oscar_plazadance',
+      tiktok: '@oscar_salsa',
+      bio: 'Director fundador de Plaza Dance. Más de 15 años formando bailadores en Madrid.',
+      avatar: '👨‍💼',
+    },
+    {
+      id: 'm2',
+      name: 'Carlos Profesor',
+      email: 'profesor@plazadance.com',
+      role: 'teacher',
+      status: 'Activo',
+      isPublic: true,
+      discipline: 'Salsa Cubana',
+      danceRole: 'Leader',
+      instagram: '@carlos_salsacubana',
+      tiktok: '@carlos_pasos',
+      bio: 'Especialista en Salsa Cubana tradicional, afrocubano y animación de grupos.',
+      avatar: '🕺',
+    },
+    {
+      id: 'm3',
+      name: 'Laura Recepción',
+      email: 'recepcion@plazadance.com',
+      role: 'reception',
+      status: 'Activo',
+      isPublic: true,
+      discipline: 'Gestión Escuela',
+      danceRole: 'Follower',
+      instagram: '@laura_plazadance',
+      tiktok: '',
+      bio: 'Coordinadora de eventos y atención a alumnos en Plaza Dance.',
+      avatar: '👩‍💼',
+    },
+    {
+      id: 'm4',
+      name: 'Elena Alumna',
+      email: 'alumno@plazadance.com',
+      role: 'student',
+      status: 'Activo',
+      isPublic: true,
+      discipline: 'Bachata Sensual',
+      danceRole: 'Follower',
+      instagram: '@elena_bachata',
+      tiktok: '@elena_dance',
+      bio: 'Apasionada por la bachata sensual y Lady Style.',
+      avatar: '💃',
+    },
+    {
+      id: 'm5',
+      name: 'Roberto Fernández',
+      email: 'roberto@email.com',
+      role: 'student',
+      status: 'Activo',
+      isPublic: true,
+      discipline: 'Kizomba Fusion',
+      danceRole: 'Leader',
+      instagram: '@rober_kiz',
+      tiktok: '',
+      bio: 'Bailador de Kizomba y Semba desde 2021.',
+      avatar: '🕺',
+    },
+    {
+      id: 'm6',
+      name: 'Sofía Martínez',
+      email: 'sofia@email.com',
+      role: 'student',
+      status: 'Activo',
+      isPublic: false,
+      discipline: 'Lady Style',
+      danceRole: 'Follower',
+      instagram: '@sofia_dance',
+      tiktok: '',
+      bio: 'Entrenando técnica de giros y estilo femenino.',
+      avatar: '💃',
+    },
   ]);
 
   // Guest & Directory Filter States
@@ -266,7 +358,6 @@ export default function HomePage() {
   // Helper: Require Login Guard
   const requireAuth = () => {
     if (!currentUser) {
-      setToastMessage('🔒 Debes iniciar sesión para realizar esta acción.');
       setIsAuthModalOpen(true);
       return false;
     }
@@ -552,13 +643,11 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#090D16] text-gray-100 flex flex-col font-sans">
-      {/* PWA Mobile WebApp Banner */}
-      <PwaInstallBanner />
-
       {/* Top Navigation Bar with Horizontal Navigation Header */}
       <Navbar
         isLoggedIn={!!currentUser}
         currentRole={currentUser?.role || 'guest'}
+        orgName={currentUser?.orgName || activeOrgName}
         userName={currentUser?.name || 'Invitado'}
         userEmail={currentUser?.email || 'sin-sesion@plazadance.com'}
         unreadCount={unreadNotificationsCount}
@@ -599,16 +688,28 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Guest Mode Welcome Banner */}
-          {!currentUser && (
-            <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="font-heading font-bold text-white text-base">🌐 Estás navegando en Modo Visitante</h3>
-                <p className="text-xs text-gray-300 mt-0.5">Puedes explorar los programas, clases y temarios. Inicia sesión para reservar plazas o editar temarios.</p>
+          {/* Guest Mode Dismissible Welcome Banner */}
+          {!currentUser && !isGuestBannerDismissed && (
+            <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30 flex items-center justify-between gap-4 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🌐</span>
+                <div>
+                  <h3 className="font-heading font-bold text-white text-sm">Estás navegando en Modo Visitante</h3>
+                  <p className="text-xs text-gray-300 mt-0.5">Explora los programas, temarios e integrantes públicos. Inicia sesión o crea tu cuenta para reservar.</p>
+                </div>
               </div>
-              <button onClick={() => setIsAuthModalOpen(true)} className="btn-primary text-xs shrink-0">
-                Inicia Sesión / Registrarse
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={() => setIsAuthModalOpen(true)} className="btn-primary text-xs py-1.5 px-3">
+                  Entrar / Registrarse
+                </button>
+                <button
+                  onClick={() => setIsGuestBannerDismissed(true)}
+                  className="p-1.5 text-gray-400 hover:text-white text-base font-bold rounded-lg hover:bg-white/10"
+                  aria-label="Cerrar aviso"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           )}
 
@@ -1115,15 +1216,15 @@ export default function HomePage() {
                     <div key={m.id} className="glass-panel p-5 flex flex-col justify-between hover:border-purple-500/40 transition">
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-2xl">{m.avatar}</span>
+                          <span className="text-3xl">{m.avatar || '👤'}</span>
                           <span
                             className={`badge ${
                               m.role === 'owner'
-                                ? 'badge-purple'
+                                ? 'badge-purple font-bold'
                                 : m.role === 'teacher'
-                                ? 'badge-cyan'
+                                ? 'badge-cyan font-bold'
                                 : m.role === 'reception'
-                                ? 'badge-amber'
+                                ? 'badge-amber font-bold'
                                 : 'badge-emerald'
                             }`}
                           >
@@ -1131,9 +1232,40 @@ export default function HomePage() {
                           </span>
                         </div>
                         <h3 className="font-heading font-bold text-lg text-white mb-0.5">{m.name}</h3>
-                        <p className="text-xs text-purple-300 font-medium mb-3">💃 {m.discipline}</p>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs text-purple-300 font-semibold">💃 {m.discipline}</span>
+                          <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-md text-gray-300">
+                            {m.danceRole || 'Leader & Follower'}
+                          </span>
+                        </div>
 
-                        <div className="flex items-center gap-2 text-[11px] text-gray-400 bg-gray-950 p-2.5 rounded-xl border border-gray-800">
+                        {m.bio && <p className="text-xs text-gray-400 mb-3 line-clamp-2 leading-relaxed">{m.bio}</p>}
+
+                        {/* Social Links */}
+                        <div className="flex items-center gap-2 mb-3">
+                          {m.instagram && (
+                            <a
+                              href={`https://instagram.com/${m.instagram.replace('@', '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2 py-1 rounded-lg bg-pink-500/15 border border-pink-500/30 text-pink-300 text-[10px] font-semibold hover:bg-pink-500/25 transition"
+                            >
+                              📸 {m.instagram}
+                            </a>
+                          )}
+                          {m.tiktok && (
+                            <a
+                              href={`https://tiktok.com/@${m.tiktok.replace('@', '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[10px] font-semibold hover:bg-cyan-500/25 transition"
+                            >
+                              🎵 {m.tiktok}
+                            </a>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-[11px] text-gray-400 bg-gray-950 p-2 rounded-xl border border-gray-800">
                           <span>Visibilidad:</span>
                           <span className={`font-semibold ${m.isPublic ? 'text-emerald-400' : 'text-gray-500'}`}>
                             {m.isPublic ? '🌐 Visible en Directorio' : '🔒 Privado'}
@@ -1142,7 +1274,7 @@ export default function HomePage() {
                       </div>
 
                       <div className="pt-4 mt-4 border-t border-gray-800 flex items-center justify-between">
-                        <span className="text-[11px] text-gray-400">{m.email}</span>
+                        <span className="text-[11px] text-gray-400 truncate max-w-[140px]">{m.email}</span>
                         <button
                           onClick={() => {
                             if (requireAuth()) {
