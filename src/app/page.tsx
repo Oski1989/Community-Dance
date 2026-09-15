@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/ui/Sidebar';
 import { StatCard, Modal } from '@/components/ui/StatCard';
 import { AuthModal } from '@/components/ui/AuthModal';
 import { NotificationsModal, NotificationItem } from '@/components/ui/NotificationsModal';
+import { PwaInstallBanner } from '@/components/ui/PwaInstallBanner';
 import { supabase } from '@/lib/supabase/client';
 
 interface ModuleItem {
@@ -551,13 +552,18 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#090D16] text-gray-100 flex flex-col font-sans">
-      {/* Top Navigation Bar */}
+      {/* PWA Mobile WebApp Banner */}
+      <PwaInstallBanner />
+
+      {/* Top Navigation Bar with Horizontal Navigation Header */}
       <Navbar
         isLoggedIn={!!currentUser}
         currentRole={currentUser?.role || 'guest'}
         userName={currentUser?.name || 'Invitado'}
         userEmail={currentUser?.email || 'sin-sesion@plazadance.com'}
         unreadCount={unreadNotificationsCount}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         onNotificationsClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
         onLoginClick={() => setIsAuthModalOpen(true)}
         onLogoutClick={handleLogout}
@@ -565,13 +571,14 @@ export default function HomePage() {
       />
 
       <div className="flex-1 flex">
-        {/* Left Sidebar */}
+        {/* Left Management Sidebar */}
         <Sidebar
           currentRole={currentUser?.role || 'guest'}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
+          onLoginClick={() => setIsAuthModalOpen(true)}
         />
 
         {/* Main Content Area */}
