@@ -22,22 +22,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'owner':
       case 'admin':
         return [
-          { id: 'dashboard', label: 'Resumen KPI', icon: '📊' },
+          { id: 'dashboard', label: 'Resumen KPI & Dirección', icon: '📊' },
           { id: 'programs', label: 'Programas & Clases', icon: '💃' },
           { id: 'reservations', label: 'Reservas & Aforos', icon: '📅' },
           { id: 'attendance', label: 'Asistencia & Check-In', icon: '📋' },
-          { id: 'payments', label: 'Pagos & Bonos', icon: '💳' },
+          { id: 'payments', label: 'Pagos & Finanzas', icon: '💳' },
           { id: 'quests', label: 'Retos & Quests', icon: '🏆' },
-          { id: 'community', label: 'Comunidad', icon: '💬' },
-          { id: 'invitations', label: 'Miembros & Equipos', icon: '👥' },
+          { id: 'community', label: 'Comunidad & Muro', icon: '💬' },
+          { id: 'members_public', label: 'Directorio Integrantes', icon: '👥' },
+          { id: 'socials', label: 'Eventos Sociales SBK', icon: '🎉' },
+          { id: 'invitations', label: 'Gestión de Equipos', icon: '⚙️' },
         ];
       case 'teacher':
         return [
-          { id: 'programs', label: 'Programas & Clases', icon: '💃' },
+          { id: 'programs', label: 'Programas & Temarios', icon: '💃' },
           { id: 'reservations', label: 'Reservas & Aforos', icon: '📅' },
           { id: 'attendance', label: 'Pasar Asistencia', icon: '📋' },
           { id: 'quests', label: 'Revisar Retos', icon: '🏆' },
           { id: 'community', label: 'Muro Social', icon: '💬' },
+          { id: 'socials', label: 'Eventos Sociales', icon: '🎉' },
         ];
       case 'reception':
         return [
@@ -47,13 +50,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
           { id: 'community', label: 'Comunidad', icon: '💬' },
         ];
       case 'student':
+        return [
+          { id: 'about', label: 'Sobre la Escuela', icon: 'ℹ️' },
+          { id: 'programs', label: 'Clases & Disciplinas', icon: '💃' },
+          { id: 'reservations', label: 'Mis Reservas', icon: '📅' },
+          { id: 'attendance', label: 'Mi Asistencia', icon: '📋' },
+          { id: 'payments', label: 'Mis Bonos & Pagos', icon: '💳' },
+          { id: 'quests', label: 'Retos & Desafíos', icon: '🏆' },
+          { id: 'community', label: 'Muro Social', icon: '💬' },
+          { id: 'members_public', label: 'Integrantes Comunidad', icon: '👥' },
+          { id: 'socials', label: 'Eventos Sociales', icon: '🎉' },
+        ];
+      case 'guest':
       default:
         return [
-          { id: 'reservations', label: 'Mis Reservas', icon: '📅' },
-          { id: 'payments', label: 'Mis Bonos & Pagos', icon: '💳' },
-          { id: 'quests', label: 'Retos & Misiones', icon: '🏆' },
-          { id: 'community', label: 'Comunidad', icon: '💬' },
-          { id: 'attendance', label: 'Mi Asistencia', icon: '📋' },
+          { id: 'about', label: 'De Qué Va la Página', icon: 'ℹ️' },
+          { id: 'programs', label: 'Clases & Disciplinas', icon: '💃' },
+          { id: 'community', label: 'Muro de Publicaciones', icon: '💬' },
+          { id: 'members_public', label: 'Integrantes Registrados', icon: '👥' },
+          { id: 'socials', label: 'Eventos Sociales', icon: '🎉' },
         ];
     }
   };

@@ -127,10 +127,53 @@ export default function HomePage() {
   ]);
 
   const [members, setMembers] = useState([
-    { id: 'm1', name: 'Óscar Director', email: 'director@plazadance.com', role: 'owner', status: 'Activo' },
-    { id: 'm2', name: 'Carlos Profesor', email: 'profesor@plazadance.com', role: 'teacher', status: 'Activo' },
-    { id: 'm3', name: 'Laura Recepción', email: 'recepcion@plazadance.com', role: 'reception', status: 'Activo' },
-    { id: 'm4', name: 'Elena Alumna', email: 'alumno@plazadance.com', role: 'student', status: 'Activo' },
+    { id: 'm1', name: 'Óscar Director', email: 'director@plazadance.com', role: 'owner', status: 'Activo', isPublic: true, discipline: 'Salsa & Bachata', avatar: '👨‍💼' },
+    { id: 'm2', name: 'Carlos Profesor', email: 'profesor@plazadance.com', role: 'teacher', status: 'Activo', isPublic: true, discipline: 'Salsa Cubana', avatar: '🕺' },
+    { id: 'm3', name: 'Laura Recepción', email: 'recepcion@plazadance.com', role: 'reception', status: 'Activo', isPublic: true, discipline: 'Gestión Escuela', avatar: '👩‍💼' },
+    { id: 'm4', name: 'Elena Alumna', email: 'alumno@plazadance.com', role: 'student', status: 'Activo', isPublic: true, discipline: 'Bachata Sensual', avatar: '💃' },
+    { id: 'm5', name: 'Roberto Fernández', email: 'roberto@email.com', role: 'student', status: 'Activo', isPublic: true, discipline: 'Kizomba Fusion', avatar: '🕺' },
+    { id: 'm6', name: 'Sofía Martínez', email: 'sofia@email.com', role: 'student', status: 'Activo', isPublic: false, discipline: 'Lady Style', avatar: '💃' },
+  ]);
+
+  // Guest & Directory Filter States
+  const [filterDiscipline, setFilterDiscipline] = useState<string>('all');
+  const [filterLevel, setFilterLevel] = useState<string>('all');
+  const [memberSearch, setMemberSearch] = useState<string>('');
+  const [memberRoleFilter, setMemberRoleFilter] = useState<string>('all');
+  const [onlyVisibleMembers, setOnlyVisibleMembers] = useState<boolean>(true);
+
+  // Social Events Data
+  const [socialEvents] = useState([
+    {
+      id: 'soc_1',
+      title: 'Viernes Social SBK & Fiesta Guaguancó',
+      date: 'Este Viernes, 23:00 - 03:30',
+      location: 'Plaza Dance Main Club - Sala Principal',
+      description: 'Fiesta con 3 salas abiertas: Salsa Cubana, Bachata Sensual y Kizomba Lounge. Taller previo a las 22:00 incluido.',
+      price: '10 € (Incluye consumición)',
+      organizer: 'Dirección Plaza Dance',
+      badge: 'Salsa & Bachata',
+    },
+    {
+      id: 'soc_2',
+      title: 'Sábado Bachata Sensual & Flow Night',
+      date: 'Este Sábado, 22:30 - 03:00',
+      location: 'Plaza Dance Studio 1',
+      description: 'Sesión 100% Bachata Sensual, Moderna y Tradicional con DJ Residente y animaciones de profesores invitados.',
+      price: '12 € (Incluye copa o 2 refrescos)',
+      organizer: 'Carlos Profesor',
+      badge: 'Bachata Special',
+    },
+    {
+      id: 'soc_3',
+      title: 'Domingo Kizomba & Semba Matinée',
+      date: 'Domingo, 18:00 - 22:00',
+      location: 'Plaza Dance Lounge',
+      description: 'Tarde de conexión kizombera, música suave y práctica libre para todos los niveles.',
+      price: '8 € (Incluye refresco o cerveza)',
+      organizer: 'Kizomba Team',
+      badge: 'Kizomba Lounge',
+    },
   ]);
 
   // Form States
@@ -493,6 +536,9 @@ export default function HomePage() {
           email: newMemberEmail,
           role: newMemberRole,
           status: 'Invitado BD',
+          isPublic: true,
+          discipline: 'Por Asignar',
+          avatar: '👤',
         },
       ]);
       setNewMemberEmail('');
@@ -559,6 +605,70 @@ export default function HomePage() {
             </div>
           )}
 
+          {/* ─── 0. TAB: ABOUT (DE QUÉ VA LA PÁGINA) ─── */}
+          {activeTab === 'about' && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="p-8 rounded-3xl bg-gradient-to-r from-purple-900/40 via-indigo-900/30 to-slate-900 border border-purple-500/30 relative overflow-hidden shadow-2xl">
+                <div className="max-w-3xl space-y-4">
+                  <span className="badge badge-purple px-3 py-1 text-xs">✨ Bienvenidx a Plaza Dance</span>
+                  <h1 className="font-heading font-black text-3xl sm:text-4xl text-white leading-tight">
+                    La Plataforma Inteligente para <span className="gradient-text-violet">Escuelas y Comunidades de Baile</span>
+                  </h1>
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    Plaza Dance une a directores, profesores, alumnos y amantes del baile SBK (Salsa, Bachata, Kizomba) en un ecosistema digital dinámico con gestión de aforos en tiempo real, temarios modulares y muro comunitario.
+                  </p>
+                  <div className="pt-2 flex flex-wrap gap-3">
+                    {!currentUser ? (
+                      <button onClick={() => setIsAuthModalOpen(true)} className="btn-primary text-xs py-2.5 px-5">
+                        🚀 Unirse a la Comunidad / Crear Cuenta
+                      </button>
+                    ) : (
+                      <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
+                        ✅ Sesión activa como <strong>{currentUser.name}</strong> ({currentUser.role.toUpperCase()})
+                      </span>
+                    )}
+                    <button onClick={() => setActiveTab('programs')} className="btn-secondary text-xs py-2.5 px-4">
+                      💃 Explorar Clases y Temarios
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="glass-panel p-6 space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-300 flex items-center justify-center text-xl font-bold">
+                    💃
+                  </div>
+                  <h3 className="font-heading font-bold text-white text-lg">Temarios & Estructura Modular</h3>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Accede a programas de Salsa Cubana, Bachata Sensual, Kizomba y Lady Style organizados por niveles y módulos de vídeo de alta definición.
+                  </p>
+                </div>
+
+                <div className="glass-panel p-6 space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-600/20 border border-cyan-500/30 text-cyan-300 flex items-center justify-center text-xl font-bold">
+                    📅
+                  </div>
+                  <h3 className="font-heading font-bold text-white text-lg">Reservas & Control de Aforos</h3>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Sistema atómico de reserva por parejas (Leaders & Followers) y lista de espera inteligente para garantizar el equilibrio perfecto en cada clase.
+                  </p>
+                </div>
+
+                <div className="glass-panel p-6 space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-600/20 border border-amber-500/30 text-amber-300 flex items-center justify-center text-xl font-bold">
+                    🎉
+                  </div>
+                  <h3 className="font-heading font-bold text-white text-lg">Comunidad & Eventos Sociales</h3>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Conecta con otros bailadores, comparte impresiones en el muro social, consulta la agenda de fiestas SBK y visualiza los perfiles de la escuela.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ─── 1. TAB: PROGRAMAS & CLASES ─── */}
           {activeTab === 'programs' && (
             <div className="space-y-8 animate-fade-in">
@@ -567,53 +677,111 @@ export default function HomePage() {
                   <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Programas & Temarios</h1>
                   <p className="text-gray-400 text-sm mt-1">Disciplinas de baile, árbol de niveles y módulos técnicos guardados en Supabase.</p>
                 </div>
-                <button
-                  onClick={() => {
-                    if (requireAuth()) {
-                      setModalType('program');
-                      setIsModalOpen(true);
-                    }
-                  }}
-                  className="btn-primary text-xs"
-                >
-                  + Nuevo Programa
-                </button>
+                {currentUser && (currentUser.role === 'owner' || currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+                  <button
+                    onClick={() => {
+                      if (requireAuth()) {
+                        setModalType('program');
+                        setIsModalOpen(true);
+                      }
+                    }}
+                    className="btn-primary text-xs"
+                  >
+                    + Nuevo Programa
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {programs.map((prog) => (
-                  <div key={prog.id} className="glass-panel p-6 flex flex-col justify-between hover:border-purple-500/40 transition">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="badge badge-cyan">{prog.discipline}</span>
-                        <span className="badge badge-purple">{prog.level}</span>
-                      </div>
-                      <h3 className="font-heading font-bold text-xl text-white mb-2">{prog.name}</h3>
-                      <p className="text-xs text-gray-400 mb-4">{prog.description}</p>
-
-                      {/* Video Modules List */}
-                      <div className="space-y-2 mb-4 bg-gray-950/70 p-3 rounded-xl border border-gray-800">
-                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Módulos del Temario ({prog.modules.length}):</p>
-                        {prog.modules.map((m) => (
-                          <div key={m.id} className="flex items-center justify-between text-xs text-gray-300">
-                            <span className="truncate pr-2">🎥 {m.title}</span>
-                            <a href={m.videoUrl} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline shrink-0 text-[11px]">Ver Vídeo ↗</a>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
-                      <span className="text-xs text-amber-400 font-semibold">🏆 Recompensa: +{prog.xpPoints} XP</span>
+              {/* Discipline & Level Filter Bar */}
+              <div className="glass-panel p-4 flex flex-wrap items-center justify-between gap-4 bg-slate-950/80">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Filtrar Disciplina:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['all', 'Salsa', 'Bachata', 'Kizomba', 'Lady Style'].map((disc) => (
                       <button
-                        onClick={() => handleOpenProgramEditor(prog)}
-                        className="btn-primary text-xs py-1.5 px-3"
+                        key={disc}
+                        onClick={() => setFilterDiscipline(disc)}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
+                          filterDiscipline === disc
+                            ? 'bg-purple-600 text-white shadow'
+                            : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                        }`}
                       >
-                        ✏️ Editar Temario & Vídeos
+                        {disc === 'all' ? 'Todas' : disc}
                       </button>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Nivel:</span>
+                  <select
+                    value={filterLevel}
+                    onChange={(e) => setFilterLevel(e.target.value)}
+                    className="form-input text-xs py-1 px-2.5 w-36"
+                  >
+                    <option value="all">Todos los Niveles</option>
+                    <option value="Iniciación">Iniciación</option>
+                    <option value="Intermedio">Intermedio</option>
+                    <option value="Avanzado">Avanzado</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Program Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {programs
+                  .filter((p) => {
+                    const matchDisc = filterDiscipline === 'all' || p.discipline.toLowerCase() === filterDiscipline.toLowerCase();
+                    const matchLvl = filterLevel === 'all' || p.level.toLowerCase() === filterLevel.toLowerCase();
+                    return matchDisc && matchLvl;
+                  })
+                  .map((prog) => (
+                    <div key={prog.id} className="glass-panel p-6 flex flex-col justify-between hover:border-purple-500/40 transition">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="badge badge-cyan">{prog.discipline}</span>
+                          <span className="badge badge-purple">{prog.level}</span>
+                        </div>
+                        <h3 className="font-heading font-bold text-xl text-white mb-2">{prog.name}</h3>
+                        <p className="text-xs text-gray-400 mb-4">{prog.description}</p>
+
+                        {/* Video Modules List */}
+                        <div className="space-y-2 mb-4 bg-gray-950/70 p-3 rounded-xl border border-gray-800">
+                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Módulos del Temario ({prog.modules.length}):</p>
+                          {prog.modules.map((m) => (
+                            <div key={m.id} className="flex items-center justify-between text-xs text-gray-300">
+                              <span className="truncate pr-2">🎥 {m.title}</span>
+                              <a href={m.videoUrl} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline shrink-0 text-[11px]">Ver Vídeo ↗</a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
+                        <span className="text-xs text-amber-400 font-semibold">🏆 Recompensa: +{prog.xpPoints} XP</span>
+                        {currentUser && (currentUser.role === 'owner' || currentUser.role === 'admin' || currentUser.role === 'teacher') ? (
+                          <button
+                            onClick={() => handleOpenProgramEditor(prog)}
+                            className="btn-primary text-xs py-1.5 px-3"
+                          >
+                            ✏️ Editar Temario & Vídeos
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              if (requireAuth()) {
+                                setToastMessage(`Iniciada inscripción en ${prog.name}`);
+                              }
+                            }}
+                            className="btn-secondary text-xs py-1.5 px-3"
+                          >
+                            Inscribirse a la Clase
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
               </div>
             </div>
           )}
@@ -871,6 +1039,159 @@ export default function HomePage() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── 9. TAB: DIRECTORIO INTEGRANTES (PÚBLICO Y FILTRABLE) ─── */}
+          {activeTab === 'members_public' && (
+            <div className="space-y-8 animate-fade-in">
+              <div>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Integrantes de la Comunidad</h1>
+                <p className="text-gray-400 text-sm mt-1">Directorio público de profesores, alumnos y equipo con filtros de visibilidad.</p>
+              </div>
+
+              {/* Filters & Search Header */}
+              <div className="glass-panel p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-slate-950/80">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    placeholder="🔍 Buscar integrante por nombre, correo o disciplina..."
+                    className="form-input text-xs"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-gray-400">Rol:</span>
+                    <select
+                      value={memberRoleFilter}
+                      onChange={(e) => setMemberRoleFilter(e.target.value)}
+                      className="form-input text-xs py-1 px-2.5 w-32"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="owner">Dirección</option>
+                      <option value="teacher">Profesores</option>
+                      <option value="reception">Recepción</option>
+                      <option value="student">Alumnos</option>
+                    </select>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer bg-white/5 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/10">
+                    <input
+                      type="checkbox"
+                      checked={onlyVisibleMembers}
+                      onChange={(e) => setOnlyVisibleMembers(e.target.checked)}
+                      className="rounded accent-purple-600"
+                    />
+                    <span>Solo visibles en directorio</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Members Grid Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {members
+                  .filter((m) => {
+                    const matchSearch =
+                      memberSearch === '' ||
+                      m.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
+                      m.email.toLowerCase().includes(memberSearch.toLowerCase()) ||
+                      m.discipline.toLowerCase().includes(memberSearch.toLowerCase());
+                    const matchRole = memberRoleFilter === 'all' || m.role === memberRoleFilter;
+                    const matchVis = !onlyVisibleMembers || m.isPublic;
+                    return matchSearch && matchRole && matchVis;
+                  })
+                  .map((m) => (
+                    <div key={m.id} className="glass-panel p-5 flex flex-col justify-between hover:border-purple-500/40 transition">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-2xl">{m.avatar}</span>
+                          <span
+                            className={`badge ${
+                              m.role === 'owner'
+                                ? 'badge-purple'
+                                : m.role === 'teacher'
+                                ? 'badge-cyan'
+                                : m.role === 'reception'
+                                ? 'badge-amber'
+                                : 'badge-emerald'
+                            }`}
+                          >
+                            {m.role.toUpperCase()}
+                          </span>
+                        </div>
+                        <h3 className="font-heading font-bold text-lg text-white mb-0.5">{m.name}</h3>
+                        <p className="text-xs text-purple-300 font-medium mb-3">💃 {m.discipline}</p>
+
+                        <div className="flex items-center gap-2 text-[11px] text-gray-400 bg-gray-950 p-2.5 rounded-xl border border-gray-800">
+                          <span>Visibilidad:</span>
+                          <span className={`font-semibold ${m.isPublic ? 'text-emerald-400' : 'text-gray-500'}`}>
+                            {m.isPublic ? '🌐 Visible en Directorio' : '🔒 Privado'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 mt-4 border-t border-gray-800 flex items-center justify-between">
+                        <span className="text-[11px] text-gray-400">{m.email}</span>
+                        <button
+                          onClick={() => {
+                            if (requireAuth()) {
+                              setToastMessage(`📩 Perfil de ${m.name} contactado.`);
+                            }
+                          }}
+                          className="btn-secondary text-xs py-1 px-2.5"
+                        >
+                          Ver Perfil
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── 10. TAB: EVENTOS SOCIALES & FIESTAS SBK ─── */}
+          {activeTab === 'socials' && (
+            <div className="space-y-8 animate-fade-in">
+              <div>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Eventos Sociales & Fiestas SBK</h1>
+                <p className="text-gray-400 text-sm mt-1">Noches de baile social, talleres especiales y sesiones de práctica.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {socialEvents.map((soc) => (
+                  <div key={soc.id} className="glass-panel p-6 flex flex-col justify-between hover:border-purple-500/40 transition">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="badge badge-purple">{soc.badge}</span>
+                        <span className="badge badge-emerald">{soc.price}</span>
+                      </div>
+                      <h3 className="font-heading font-bold text-xl text-white mb-1">{soc.title}</h3>
+                      <p className="text-xs font-semibold text-purple-300 mb-2">🗓️ {soc.date}</p>
+                      <p className="text-xs text-gray-400 mb-3">📍 {soc.location}</p>
+                      <p className="text-xs text-gray-300 bg-gray-950 p-3 rounded-xl border border-gray-800 leading-relaxed mb-4">
+                        {soc.description}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
+                      <span className="text-[11px] text-gray-400">Org: {soc.organizer}</span>
+                      <button
+                        onClick={() => {
+                          if (requireAuth()) {
+                            setToastMessage(`🎉 Plaza confirmada para "${soc.title}".`);
+                          }
+                        }}
+                        className="btn-primary text-xs py-1.5 px-3"
+                      >
+                        Asistir al Social
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
