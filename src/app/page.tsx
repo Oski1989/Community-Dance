@@ -235,6 +235,53 @@ export default function HomePage() {
   const [memberRoleFilter, setMemberRoleFilter] = useState<string>('all');
   const [onlyVisibleMembers, setOnlyVisibleMembers] = useState<boolean>(true);
 
+  // Selected Member Profile Modal State
+  const [selectedMemberProfile, setSelectedMemberProfile] = useState<any | null>(null);
+
+  // Security Confirmation Modal State (with captcha verification text)
+  const [securityConfirmModal, setSecurityConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    requiredWord: string;
+    typedWord: string;
+    actionType: 'delete' | 'change_role';
+    targetMemberId?: string;
+    targetRole?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    requiredWord: 'ELIMINAR',
+    typedWord: '',
+    actionType: 'delete',
+  });
+
+  // Handler to Execute Confirmed Security Action
+  const handleExecuteConfirmAction = () => {
+    const { actionType, targetMemberId, targetRole } = securityConfirmModal;
+    if (!targetMemberId) return;
+
+    if (actionType === 'delete') {
+      setMembers(members.filter((m) => m.id !== targetMemberId));
+      setToastMessage('🗑️ Cuenta de usuario eliminada de la base de datos.');
+    } else if (actionType === 'change_role' && targetRole) {
+      setMembers(
+        members.map((m) => (m.id === targetMemberId ? { ...m, role: targetRole } : m))
+      );
+      setToastMessage(`👑 Rol actualizado exitosamente a ${targetRole.toUpperCase()}.`);
+    }
+
+    setSecurityConfirmModal({
+      isOpen: false,
+      title: '',
+      message: '',
+      requiredWord: 'ELIMINAR',
+      typedWord: '',
+      actionType: 'delete',
+    });
+  };
+
   // Social Events Data
   const [socialEvents] = useState([
     {
@@ -660,15 +707,17 @@ export default function HomePage() {
       />
 
       <div className="flex-1 flex">
-        {/* Left Management Sidebar */}
-        <Sidebar
-          currentRole={currentUser?.role || 'guest'}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          isMobileOpen={isMobileMenuOpen}
-          onMobileClose={() => setIsMobileMenuOpen(false)}
-          onLoginClick={() => setIsAuthModalOpen(true)}
-        />
+        {/* Left Management Sidebar - ONLY rendered for logged in management users, NOT for guests */}
+        {currentUser && currentUser.role !== 'guest' && (
+          <Sidebar
+            currentRole={currentUser.role}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            isMobileOpen={isMobileMenuOpen}
+            onMobileClose={() => setIsMobileMenuOpen(false)}
+            onLoginClick={() => setIsAuthModalOpen(true)}
+          />
+        )}
 
         {/* Main Content Area */}
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
@@ -1127,20 +1176,71 @@ export default function HomePage() {
                         <th className="pb-3 font-semibold">Email</th>
                         <th className="pb-3 font-semibold">Rol Asignado</th>
                         <th className="pb-3 font-semibold">Estado</th>
+                        <th className="pb-3 font-semibold text-right">Acciones de Control</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
                       {members.map((m) => (
                         <tr key={m.id} className="hover:bg-white/5 transition">
-                          <td className="py-3 font-semibold text-white">{m.name}</td>
+                          <td className="py-3 font-semibold text-white flex items-center gap-2">
+                            <span className="text-xl">{m.avatar || '👤'}</span>
+                            <span>{m.name}</span>
+                          </td>
                           <td className="py-3 text-gray-300">{m.email}</td>
                           <td className="py-3">
-                            <span className="badge badge-purple uppercase font-bold">{m.role}</span>
+                            <select
+                              value={m.role}
+                              onChange={(e) => {
+                                const newRole = e.target.value;
+                                setSecurityConfirmModal({
+                                  isOpen: true,
+                                  title: `🔒 Confirmar Cambio de Rol para ${m.name}`,
+                                  message: `¿Estás seguro de modificar el rol de ${m.name} a "${newRole.toUpperCase()}"? Para aplicar el cambio escribe "CONFIRMAR":`,
+                                  requiredWord: 'CONFIRMAR',
+                                  typedWord: '',
+                                  actionType: 'change_role',
+                                  targetMemberId: m.id,
+                                  targetRole: newRole,
+                                });
+                              }}
+                              className="form-input text-xs py-1 px-2 font-semibold border-purple-500/30"
+                            >
+                              <option value="superadmin">👑 SUPERADMIN</option>
+                              <option value="owner">🏛️ DIRECTOR</option>
+                              <option value="teacher">🕺 PROFESOR</option>
+                              <option value="reception">📋 RECEPCIÓN</option>
+                              <option value="student">💃 ALUMNO</option>
+                            </select>
                           </td>
                           <td className="py-3">
-                            <span className={`badge ${m.status.includes('Activo') ? 'badge-emerald' : 'badge-amber'}`}>
-                              {m.status}
-                            </span>
+                            <button
+                              onClick={() => {
+                                const updatedStatus = m.status === 'Activo' ? 'Inactivo' : 'Activo';
+                                setMembers(members.map((item) => (item.id === m.id ? { ...item, status: updatedStatus } : item)));
+                                setToastMessage(`Estado de ${m.name} cambiado a ${updatedStatus}.`);
+                              }}
+                              className={`badge cursor-pointer transition hover:scale-105 ${m.status.includes('Activo') ? 'badge-emerald' : 'badge-amber'}`}
+                            >
+                              {m.status} 🔄
+                            </button>
+                          </td>
+                          <td className="py-3 text-right">
+                            <button
+                              onClick={() => {
+                                setSecurityConfirmModal({
+                                  isOpen: true,
+                                  title: `⚠️ ELIMINAR CUENTA DE ${m.name.toUpperCase()}`,
+                                  message: `Acción destructiva e irreversible. Esta cuenta será completamente eliminada de la base de datos de la escuela. Para confirmar la eliminación, escribe la palabra "ELIMINAR" abajo:`,
+                                  requiredWord: 'ELIMINAR',
+                                  typedWord: '',
+                                  actionType: 'delete',
+                                  targetMemberId: m.id,
+                                });
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-bold hover:bg-rose-500/30 transition"
+                            >
+                              🗑️ Eliminar
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -1276,14 +1376,10 @@ export default function HomePage() {
                       <div className="pt-4 mt-4 border-t border-gray-800 flex items-center justify-between">
                         <span className="text-[11px] text-gray-400 truncate max-w-[140px]">{m.email}</span>
                         <button
-                          onClick={() => {
-                            if (requireAuth()) {
-                              setToastMessage(`📩 Perfil de ${m.name} contactado.`);
-                            }
-                          }}
+                          onClick={() => setSelectedMemberProfile(m)}
                           className="btn-secondary text-xs py-1 px-2.5"
                         >
-                          Ver Perfil
+                          👁️ Ver Perfil
                         </button>
                       </div>
                     </div>
@@ -1605,6 +1701,182 @@ export default function HomePage() {
           </form>
         )}
       </Modal>
+
+      {/* ─── MODAL: PERFIL COMPLETO DE MIEMBRO ─── */}
+      {selectedMemberProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="glass-panel w-full max-w-lg p-0 bg-slate-950 border-purple-500/30 shadow-2xl relative rounded-2xl overflow-hidden">
+            {/* Header Gradient Banner */}
+            <div className="h-28 bg-gradient-to-br from-purple-600 via-pink-500 to-cyan-500 relative">
+              <button
+                onClick={() => setSelectedMemberProfile(null)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 transition text-sm font-bold"
+              >
+                ✕
+              </button>
+              <div className="absolute -bottom-8 left-6">
+                <div className="w-20 h-20 rounded-2xl bg-slate-950 border-4 border-slate-950 flex items-center justify-center text-4xl shadow-xl">
+                  {selectedMemberProfile.avatar || '👤'}
+                </div>
+              </div>
+            </div>
+
+            {/* Content Body */}
+            <div className="pt-12 px-6 pb-6 space-y-5">
+              {/* Name & Role */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="font-heading font-extrabold text-xl text-white">{selectedMemberProfile.name}</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">{selectedMemberProfile.email}</p>
+                </div>
+                <span
+                  className={`badge font-bold text-xs ${
+                    selectedMemberProfile.role === 'owner' ? 'badge-purple' :
+                    selectedMemberProfile.role === 'teacher' ? 'badge-cyan' :
+                    selectedMemberProfile.role === 'reception' ? 'badge-amber' : 'badge-emerald'
+                  }`}
+                >
+                  {selectedMemberProfile.role.toUpperCase()}
+                </span>
+              </div>
+
+              {/* Bio */}
+              {selectedMemberProfile.bio && (
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-sm text-gray-300 leading-relaxed italic">"{selectedMemberProfile.bio}"</p>
+                </div>
+              )}
+
+              {/* Info Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-900 rounded-xl p-3 border border-gray-800">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">Disciplina</span>
+                  <span className="text-sm text-purple-300 font-semibold">💃 {selectedMemberProfile.discipline}</span>
+                </div>
+                <div className="bg-gray-900 rounded-xl p-3 border border-gray-800">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">Rol de Baile</span>
+                  <span className="text-sm text-cyan-300 font-semibold">🎭 {selectedMemberProfile.danceRole || 'Leader & Follower'}</span>
+                </div>
+                <div className="bg-gray-900 rounded-xl p-3 border border-gray-800">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">Estado</span>
+                  <span className={`text-sm font-semibold ${selectedMemberProfile.status === 'Activo' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {selectedMemberProfile.status === 'Activo' ? '🟢' : '🟡'} {selectedMemberProfile.status}
+                  </span>
+                </div>
+                <div className="bg-gray-900 rounded-xl p-3 border border-gray-800">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">Visibilidad</span>
+                  <span className={`text-sm font-semibold ${selectedMemberProfile.isPublic ? 'text-emerald-400' : 'text-gray-500'}`}>
+                    {selectedMemberProfile.isPublic ? '🌐 Público' : '🔒 Privado'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Social Links */}
+              <div className="space-y-2">
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Redes Sociales</span>
+                <div className="flex flex-wrap gap-2">
+                  {selectedMemberProfile.instagram && (
+                    <a
+                      href={`https://instagram.com/${selectedMemberProfile.instagram.replace('@', '')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-pink-500/15 border border-pink-500/30 text-pink-300 text-xs font-semibold hover:bg-pink-500/25 transition"
+                    >
+                      📸 Instagram: {selectedMemberProfile.instagram}
+                    </a>
+                  )}
+                  {selectedMemberProfile.tiktok && (
+                    <a
+                      href={`https://tiktok.com/@${selectedMemberProfile.tiktok.replace('@', '')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-semibold hover:bg-cyan-500/25 transition"
+                    >
+                      🎵 TikTok: {selectedMemberProfile.tiktok}
+                    </a>
+                  )}
+                  {!selectedMemberProfile.instagram && !selectedMemberProfile.tiktok && (
+                    <span className="text-xs text-gray-500 italic">No ha compartido redes sociales.</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setSelectedMemberProfile(null)}
+                className="btn-secondary w-full justify-center text-sm py-2.5"
+              >
+                Cerrar Perfil
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: CONFIRMACIÓN DE SEGURIDAD (Captcha Textual) ─── */}
+      {securityConfirmModal.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="glass-panel w-full max-w-md p-6 sm:p-8 bg-slate-950 border-rose-500/40 shadow-2xl relative rounded-2xl">
+            {/* Close */}
+            <button
+              onClick={() => setSecurityConfirmModal({ ...securityConfirmModal, isOpen: false, typedWord: '' })}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white transition text-xl font-bold w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10"
+            >
+              ✕
+            </button>
+
+            {/* Icon */}
+            <div className="text-center mb-5">
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-3xl mx-auto mb-3">
+                {securityConfirmModal.actionType === 'delete' ? '⚠️' : '🔒'}
+              </div>
+              <h2 className="font-heading font-extrabold text-lg text-white">{securityConfirmModal.title}</h2>
+            </div>
+
+            {/* Message */}
+            <p className="text-sm text-gray-300 leading-relaxed mb-4 text-center">{securityConfirmModal.message}</p>
+
+            {/* Captcha Input */}
+            <div className="mb-4">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <span className="text-xs text-gray-400">Escribe:</span>
+                <span className="px-3 py-1 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 font-mono font-bold text-sm tracking-widest select-none">
+                  {securityConfirmModal.requiredWord}
+                </span>
+              </div>
+              <input
+                type="text"
+                value={securityConfirmModal.typedWord}
+                onChange={(e) => setSecurityConfirmModal({ ...securityConfirmModal, typedWord: e.target.value })}
+                placeholder={`Escribe "${securityConfirmModal.requiredWord}" para confirmar...`}
+                className="form-input text-center font-mono font-bold tracking-wider text-sm"
+                autoFocus
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSecurityConfirmModal({ ...securityConfirmModal, isOpen: false, typedWord: '' })}
+                className="btn-secondary flex-1 justify-center text-sm py-2.5"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleExecuteConfirmAction}
+                disabled={securityConfirmModal.typedWord.trim().toUpperCase() !== securityConfirmModal.requiredWord}
+                className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition ${
+                  securityConfirmModal.typedWord.trim().toUpperCase() === securityConfirmModal.requiredWord
+                    ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-lg shadow-rose-500/30 hover:from-rose-500 hover:to-red-500 cursor-pointer'
+                    : 'bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed'
+                }`}
+              >
+                {securityConfirmModal.actionType === 'delete' ? '🗑️ Confirmar Eliminación' : '✅ Aplicar Cambio de Rol'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
