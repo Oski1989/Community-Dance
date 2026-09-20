@@ -68,18 +68,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       }
 
       if (data.user) {
-        let role = (data.user.user_metadata?.role as string) || 'student';
         let name = (data.user.user_metadata?.full_name as string) || data.user.email?.split('@')[0] || 'Usuario';
 
-        const { data: memberData } = await supabase
-          .from('organization_members')
-          .select('role')
-          .eq('user_id', data.user.id)
+        // Check profile system_role first (superadmin overrides everything)
+        const { data: profData } = await supabase
+          .from('profiles')
+          .select('system_role, full_name')
+          .eq('id', data.user.id)
           .maybeSingle();
 
-        if (memberData?.role) {
-          role = memberData.role;
+        let role = 'student';
+        if (profData?.system_role === 'superadmin') {
+          role = 'superadmin';
+        } else {
+          const { data: memberData } = await supabase
+            .from('organization_members')
+            .select('role')
+            .eq('user_id', data.user.id)
+            .maybeSingle();
+          if (memberData?.role) role = memberData.role;
         }
+
+        if (profData?.full_name) name = profData.full_name;
 
         onAuthSuccess({
           id: data.user.id,

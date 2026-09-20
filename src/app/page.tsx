@@ -366,22 +366,27 @@ export default function HomePage() {
         const { data: authData } = await supabase.auth.getSession();
         if (authData.session?.user) {
           const u = authData.session.user;
-          let role = (u.user_metadata?.role as string) || 'student';
           let name = (u.user_metadata?.full_name as string) || u.email?.split('@')[0] || 'Usuario';
 
-          const { data: memberData } = await supabase
-            .from('organization_members')
-            .select('role')
-            .eq('user_id', u.id)
-            .single();
-
-          if (memberData?.role) role = memberData.role;
-
+          // Fetch profile first to get system_role
           const { data: profData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', u.id)
             .single();
+
+          // Determine role: system_role takes priority over org role
+          let role = 'student';
+          if (profData?.system_role === 'superadmin') {
+            role = 'superadmin';
+          } else {
+            const { data: memberData } = await supabase
+              .from('organization_members')
+              .select('role')
+              .eq('user_id', u.id)
+              .single();
+            if (memberData?.role) role = memberData.role;
+          }
 
           const bio = profData?.bio || '';
           const phone = profData?.phone || '';
