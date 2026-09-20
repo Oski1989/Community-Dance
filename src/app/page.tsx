@@ -43,6 +43,7 @@ export default function HomePage() {
     youtube?: string;
     showInRankings?: boolean;
     avatar?: string;
+    avatarUrl?: string;
   } | null>(null);
 
   // Student & Staff Profile Form State
@@ -58,10 +59,11 @@ export default function HomePage() {
     youtube: '',
     showInRankings: true,
     avatar: '💃',
+    avatarUrl: '',
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isGuestBannerDismissed, setIsGuestBannerDismissed] = useState<boolean>(false);
-  const [activeOrgName, setActiveOrgName] = useState<string>('Escuela Plaza Dance Madrid');
+  const [activeOrgName, setActiveOrgName] = useState<string>('Plaza Dance');
 
   // App Navigation & UI State
   const [activeTab, setActiveTab] = useState<string>('programs');
@@ -390,6 +392,7 @@ export default function HomePage() {
           const facebook = profData?.facebook || '';
           const youtube = profData?.youtube || '';
           const showInRankings = profData?.show_in_rankings ?? true;
+          const avatarUrl = profData?.avatar_url || '';
 
           setCurrentUser({
             id: u.id,
@@ -405,6 +408,7 @@ export default function HomePage() {
             facebook,
             youtube,
             showInRankings,
+            avatarUrl,
           });
 
           setProfileForm({
@@ -419,6 +423,7 @@ export default function HomePage() {
             youtube,
             showInRankings,
             avatar: '💃',
+            avatarUrl,
           });
         }
 
@@ -580,6 +585,7 @@ export default function HomePage() {
           facebook: profileForm.facebook,
           youtube: profileForm.youtube,
           show_in_rankings: profileForm.showInRankings,
+          avatar_url: profileForm.avatarUrl || null,
         })
         .eq('id', currentUser.id);
 
@@ -599,6 +605,7 @@ export default function HomePage() {
               facebook: profileForm.facebook,
               youtube: profileForm.youtube,
               showInRankings: profileForm.showInRankings,
+              avatarUrl: profileForm.avatarUrl,
             }
           : null
       );
@@ -820,6 +827,7 @@ export default function HomePage() {
         orgName={currentUser?.orgName || activeOrgName}
         userName={currentUser?.name || 'Invitado'}
         userEmail={currentUser?.email || 'sin-sesion@plazadance.com'}
+        userAvatar={currentUser?.avatarUrl || currentUser?.avatar}
         unreadCount={unreadNotificationsCount}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -909,23 +917,82 @@ export default function HomePage() {
 
                   <form onSubmit={handleSaveStudentProfile} className="space-y-4">
                     {/* Selector de Foto / Avatar */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-300 mb-1.5">Avatar / Icono de Perfil</label>
-                      <div className="flex items-center gap-2">
-                        {['💃', '🕺', '✨', '🎧', '👑', '🏆', '🔥'].map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => setProfileForm({ ...profileForm, avatar: emoji })}
-                            className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center border transition ${
-                              profileForm.avatar === emoji
-                                ? 'bg-purple-600/40 border-purple-400 scale-110 shadow'
-                                : 'bg-gray-900 border-gray-800 hover:bg-gray-800'
-                            }`}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
+                    <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/20 space-y-3">
+                      <label className="block text-xs font-semibold text-purple-300">🖼️ Foto de Perfil / Avatar</label>
+                      
+                      <div className="flex items-center gap-4">
+                        {/* Avatar Preview */}
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-white text-2xl shadow-lg overflow-hidden shrink-0 border-2 border-purple-400/40">
+                          {profileForm.avatarUrl ? (
+                            <img src={profileForm.avatarUrl} alt="Foto de Perfil" className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{profileForm.avatar}</span>
+                          )}
+                        </div>
+
+                        <div className="flex-1 space-y-2">
+                          {/* File Upload Button */}
+                          <div className="flex items-center gap-2">
+                            <label className="cursor-pointer py-1.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow">
+                              <span>📸 Subir Foto</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      setProfileForm({ ...profileForm, avatarUrl: reader.result as string });
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </label>
+
+                            {profileForm.avatarUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setProfileForm({ ...profileForm, avatarUrl: '' })}
+                                className="py-1.5 px-3 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-semibold transition border border-rose-500/30"
+                              >
+                                🗑️ Quitar Foto
+                              </button>
+                            )}
+                          </div>
+
+                          {/* URL Input */}
+                          <input
+                            type="url"
+                            value={profileForm.avatarUrl}
+                            onChange={(e) => setProfileForm({ ...profileForm, avatarUrl: e.target.value })}
+                            placeholder="o pega el enlace de tu foto (https://...)"
+                            className="form-input text-xs py-1.5"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Emoji Picker */}
+                      <div>
+                        <p className="text-[11px] text-gray-400 font-medium mb-1.5">O elige un icono de baile por defecto:</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {['💃', '🕺', '✨', '🎧', '👑', '🏆', '🔥'].map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => setProfileForm({ ...profileForm, avatar: emoji, avatarUrl: '' })}
+                              className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center border transition ${
+                                profileForm.avatar === emoji && !profileForm.avatarUrl
+                                  ? 'bg-purple-600/40 border-purple-400 scale-105 shadow'
+                                  : 'bg-gray-900 border-gray-800 hover:bg-gray-800'
+                              }`}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 

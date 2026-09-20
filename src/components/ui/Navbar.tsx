@@ -8,6 +8,7 @@ interface NavbarProps {
   orgName?: string;
   userName?: string;
   userEmail?: string;
+  userAvatar?: string;
   unreadCount?: number;
   activeTab?: string;
   onTabChange?: (tab: string) => void;
@@ -20,9 +21,10 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   isLoggedIn = false,
   currentRole = 'student',
-  orgName = 'Escuela Plaza Dance Madrid',
+  orgName = 'Plaza Dance',
   userName = 'Invitado',
   userEmail = 'sin-sesion@plazadance.com',
+  userAvatar = '',
   unreadCount = 0,
   activeTab = 'about',
   onTabChange,
@@ -152,8 +154,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center gap-2 pl-2 border-l border-gray-800 text-left focus:outline-none"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 flex items-center justify-center font-bold text-white text-xs shadow-md">
-                    {userName.charAt(0)}
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 flex items-center justify-center font-bold text-white text-xs shadow-md overflow-hidden shrink-0">
+                    {userAvatar && (userAvatar.startsWith('http') || userAvatar.startsWith('data:')) ? (
+                      <img src={userAvatar} alt={userName} className="w-full h-full object-cover" />
+                    ) : userAvatar ? (
+                      <span className="text-sm">{userAvatar}</span>
+                    ) : (
+                      userName.charAt(0)
+                    )}
                   </div>
                   <div className="hidden xl:block">
                     <p className="font-semibold text-white text-xs leading-none">{userName}</p>
