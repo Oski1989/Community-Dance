@@ -21,6 +21,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const getNavItems = () => {
     switch (currentRole) {
+      case 'superadmin':
+        return [
+          { id: 'saas_management', label: 'Gestión Global SaaS', icon: '👑' },
+          { id: 'dashboard', label: 'Resumen KPI & Dirección', icon: '📊' },
+          { id: 'invitations', label: 'Gestión de Equipos & Roles', icon: '⚙️' },
+          { id: 'quests', label: 'Retos & Quests Globales', icon: '🏆' },
+        ];
       case 'owner':
       case 'admin':
         return [
@@ -46,10 +53,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ];
       case 'student':
         return [
+          { id: 'student_profile', label: 'Mi Perfil & Privacidad', icon: '👤' },
           { id: 'reservations', label: 'Mis Reservas', icon: '📅' },
-          { id: 'attendance', label: 'Mi Asistencia', icon: '📋' },
+          { id: 'attendance', label: 'Mi Asistencia & QR', icon: '📋' },
           { id: 'payments', label: 'Mis Bonos & Pagos', icon: '💳' },
-          { id: 'quests', label: 'Retos & Desafíos', icon: '🏆' },
+          { id: 'quests', label: 'Retos Disponibles', icon: '🏆' },
         ];
       case 'guest':
       default:
@@ -59,6 +67,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = getNavItems();
 
+  if (currentRole === 'guest') return null;
+
   const handleSelectTab = (id: string) => {
     onTabChange(id);
     if (onMobileClose) onMobileClose();
@@ -67,49 +77,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const renderNavContent = () => (
     <div className="flex flex-col justify-between h-full p-4">
       <div className="space-y-4">
-        {currentRole !== 'guest' ? (
-          <div>
-            <p className="px-3 text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3">
-              ⚡ Panel de Gestión ({currentRole.toUpperCase()})
-            </p>
-            <nav className="space-y-1.5">
-              {navItems.map((item) => {
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    id={`sidebar-link-${item.id}`}
-                    onClick={() => handleSelectTab(item.id)}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-xs transition ${
-                      isActive
-                        ? 'bg-purple-600/30 text-purple-200 border border-purple-500/40 shadow-inner font-semibold'
-                        : 'text-gray-400 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    <span className="text-base">{item.icon}</span>
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        ) : (
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-950/60 to-indigo-950/60 border border-purple-500/30 space-y-3">
-            <span className="badge badge-purple text-xs">🌐 Modo Visitante</span>
-            <h4 className="font-heading font-bold text-white text-sm">¿Quieres reservar plazas o publicar en la comunidad?</h4>
-            <p className="text-xs text-gray-300 leading-relaxed">
-              Crea tu cuenta de alumno en segundos para inscribirte a clases, entregar retos y conectar con otros bailadores.
-            </p>
-            {onLoginClick && (
-              <button
-                onClick={onLoginClick}
-                className="btn-primary w-full justify-center text-xs py-2 mt-1"
-              >
-                🔑 Iniciar Sesión / Registrarse
-              </button>
-            )}
-          </div>
-        )}
+        <div>
+          <p className="px-3 text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3">
+            ⚡ Panel de Gestión ({currentRole.toUpperCase()})
+          </p>
+          <nav className="space-y-1.5">
+            {navItems.map((item) => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  id={`sidebar-link-${item.id}`}
+                  onClick={() => handleSelectTab(item.id)}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-xs transition ${
+                    isActive
+                      ? 'bg-purple-600/30 text-purple-200 border border-purple-500/40 shadow-inner font-semibold'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <span className="text-base">{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </div>
 
       <div className="p-3 rounded-2xl bg-gradient-to-br from-slate-900 to-purple-950/40 border border-purple-500/20 text-xs space-y-1">

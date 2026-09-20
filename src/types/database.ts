@@ -10,6 +10,10 @@ export interface Profile {
   nickname?: string | null;
   avatar_url?: string | null;
   bio?: string | null;
+  dance_role?: DanceRolePreference;
+  instagram?: string | null;
+  tiktok?: string | null;
+  show_in_rankings?: boolean;
   global_role: GlobalRole;
   created_at: string;
   updated_at: string;
@@ -36,6 +40,53 @@ export interface Organization {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface School {
+  id: string;
+  organization_id: string;
+  name: string;
+  director_id?: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface SocialEvent {
+  id: string;
+  organization_id?: string | null;
+  school_id?: string | null;
+  teacher_id?: string | null;
+  title: string;
+  description?: string | null;
+  location: string;
+  event_date: string;
+  price: number;
+  is_featured: boolean;
+  capacity: number;
+  created_at: string;
+}
+
+export interface SocialCheckin {
+  id: string;
+  event_id: string;
+  user_id: string;
+  checked_in_at: string;
+}
+
+export interface SaasPlan {
+  id: string;
+  name: string;
+  max_monthly_posts: number;
+  price_monthly: number;
+  is_active: boolean;
+}
+
+export interface OrganizationSubscription {
+  id: string;
+  organization_id: string;
+  plan_id: string;
+  status: string;
+  created_at: string;
 }
 
 export interface OrganizationMember {
@@ -92,7 +143,9 @@ export type SessionStatus = 'scheduled' | 'cancelled' | 'completed';
 
 export interface Program {
   id: string;
-  organization_id: string;
+  organization_id?: string | null;
+  school_id?: string | null;
+  teacher_id?: string | null;
   name: string;
   description?: string | null;
   is_active: boolean;
@@ -245,7 +298,8 @@ export type QuestSubmissionStatus = 'in_progress' | 'submitted' | 'approved' | '
 
 export interface Quest {
   id: string;
-  organization_id: string;
+  organization_id?: string | null;
+  school_id?: string | null;
   program_id?: string | null;
   created_by_teacher_id: string;
   title: string;
@@ -258,7 +312,7 @@ export interface Quest {
 
 export interface UserQuestProgress {
   id: string;
-  organization_id: string;
+  organization_id?: string | null;
   quest_id: string;
   user_id: string;
   status: QuestSubmissionStatus;
@@ -272,7 +326,7 @@ export interface UserQuestProgress {
 
 export interface CommunityPost {
   id: string;
-  organization_id: string;
+  organization_id?: string | null;
   user_id: string;
   content: string;
   media_url?: string | null;
@@ -303,3 +357,4 @@ export interface UserNotification {
   is_read: boolean;
   created_at: string;
 }
+

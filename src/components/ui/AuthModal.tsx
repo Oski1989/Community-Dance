@@ -46,43 +46,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
     }
   };
 
-  // Quick Demo Login Helper
-  const handleDemoLogin = (demoRole: 'superadmin' | 'owner' | 'teacher' | 'student') => {
-    setLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    let name = 'Usuario Demo';
-    let userEmail = 'demo@plazadance.com';
-
-    if (demoRole === 'superadmin') {
-      name = 'SuperAdmin Global';
-      userEmail = 'superadmin@plazadance.com';
-    } else if (demoRole === 'owner') {
-      name = 'Óscar Director';
-      userEmail = 'director@plazadance.com';
-    } else if (demoRole === 'teacher') {
-      name = 'Carlos Profesor';
-      userEmail = 'profesor@plazadance.com';
-    } else {
-      name = 'Elena Alumna';
-      userEmail = 'alumno@plazadance.com';
-    }
-
-    setTimeout(() => {
-      onAuthSuccess({
-        id: `demo_${demoRole}_id`,
-        name,
-        email: userEmail,
-        role: demoRole,
-        orgName: demoRole === 'superadmin' ? 'Plataforma Global (Todas las Escuelas)' : 'Escuela Plaza Dance Madrid',
-      });
-      setSuccessMessage(`¡Sesión iniciada como ${name} (${demoRole.toUpperCase()})!`);
-      setLoading(false);
-      setTimeout(() => onClose(), 500);
-    }, 300);
-  };
-
   // Handle Login with Supabase
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,18 +54,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
     setSuccessMessage('');
 
     const cleanEmail = email.trim();
-
-    // Check if demo email matching
-    if (cleanEmail === 'superadmin@plazadance.com') {
-      handleDemoLogin('superadmin');
-      return;
-    } else if (cleanEmail === 'director@plazadance.com') {
-      handleDemoLogin('owner');
-      return;
-    } else if (cleanEmail === 'profesor@plazadance.com') {
-      handleDemoLogin('teacher');
-      return;
-    }
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -462,29 +413,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               className="btn-primary w-full justify-center text-sm py-2.5 mt-2"
             >
               {loading ? 'Verificando datos...' : 'Entrar a Plaza Dance'}
-            </button>
-
-            {/* Quick Demo Accounts */}
-            <div className="pt-3 border-t border-gray-800 space-y-1.5">
-              <span className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider text-center">Acceso Rápido de Prueba (1-Clic)</span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleDemoLogin('superadmin')}
-                  className="py-1.5 px-2 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-bold hover:bg-rose-500/25 transition text-left"
-                >
-                  👑 SuperAdmin Global
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDemoLogin('owner')}
-                  className="py-1.5 px-2 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[11px] font-bold hover:bg-purple-500/25 transition text-left"
-                >
-                  🏛️ Director de Escuela
-                </button>
-              </div>
-            </div>
-          </form>
+            </button>          </form>
         )}
 
         {/* FORM 2: REGISTRO ALUMNO */}

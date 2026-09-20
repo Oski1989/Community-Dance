@@ -27,7 +27,30 @@ interface ProgramItem {
 
 export default function HomePage() {
   // User & Auth State (null means Guest mode)
-  const [currentUser, setCurrentUser] = useState<{ id?: string; name: string; email: string; role: string; orgName?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    id?: string;
+    name: string;
+    email: string;
+    role: string;
+    orgName?: string;
+    bio?: string;
+    danceRole?: string;
+    instagram?: string;
+    tiktok?: string;
+    showInRankings?: boolean;
+    avatar?: string;
+  } | null>(null);
+
+  // Student Profile Form State
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    bio: '',
+    danceRole: 'both',
+    instagram: '',
+    tiktok: '',
+    showInRankings: true,
+    avatar: '💃',
+  });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isGuestBannerDismissed, setIsGuestBannerDismissed] = useState<boolean>(false);
   const [activeOrgName, setActiveOrgName] = useState<string>('Escuela Plaza Dance Madrid');
@@ -344,7 +367,39 @@ export default function HomePage() {
 
           if (memberData?.role) role = memberData.role;
 
-          setCurrentUser({ id: u.id, name, email: u.email || '', role });
+          const { data: profData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', u.id)
+            .single();
+
+          const bio = profData?.bio || '';
+          const danceRole = profData?.dance_role || 'both';
+          const instagram = profData?.instagram || '';
+          const tiktok = profData?.tiktok || '';
+          const showInRankings = profData?.show_in_rankings ?? true;
+
+          setCurrentUser({
+            id: u.id,
+            name,
+            email: u.email || '',
+            role,
+            bio,
+            danceRole,
+            instagram,
+            tiktok,
+            showInRankings,
+          });
+
+          setProfileForm({
+            name,
+            bio,
+            danceRole,
+            instagram,
+            tiktok,
+            showInRankings,
+            avatar: '💃',
+          });
         }
 
         // Fetch DB Programs if available
@@ -482,6 +537,46 @@ export default function HomePage() {
       setToastMessage(`💾 Temario de "${editingProgram.name}" guardado exitosamente en la base de datos.`);
     } catch (err: any) {
       setErrorMessage(err.message || 'No se pudo guardar en la base de datos.');
+    }
+  };
+
+  // Save Student Profile & Privacy Settings to Database
+  const handleSaveStudentProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requireAuth() || !currentUser?.id) return;
+    setErrorMessage('');
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: profileForm.name,
+          bio: profileForm.bio,
+          dance_role: profileForm.danceRole,
+          instagram: profileForm.instagram,
+          tiktok: profileForm.tiktok,
+          show_in_rankings: profileForm.showInRankings,
+        })
+        .eq('id', currentUser.id);
+
+      if (error) throw new Error(error.message);
+
+      setCurrentUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: profileForm.name,
+              bio: profileForm.bio,
+              danceRole: profileForm.danceRole,
+              instagram: profileForm.instagram,
+              tiktok: profileForm.tiktok,
+              showInRankings: profileForm.showInRankings,
+            }
+          : null
+      );
+      setToastMessage('✅ Perfil y privacidad actualizados en la base de datos.');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al guardar el perfil en la base de datos.');
     }
   };
 
@@ -758,6 +853,186 @@ export default function HomePage() {
                 >
                   ✕
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── TAB: MI PERFIL DE ALUMNO & PRIVACIDAD ─── */}
+          {activeTab === 'student_profile' && (
+            <div className="space-y-8 animate-fade-in">
+              <div>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">
+                  👤 Mi Perfil & Ficha de Bailarín/a
+                </h1>
+                <p className="text-gray-400 text-sm mt-1">
+                  Gestiona tus datos personales, redes sociales y visibilidad en la comunidad.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Formulario de Perfil */}
+                <div className="lg:col-span-2 glass-panel p-6 space-y-5">
+                  <h2 className="font-heading font-bold text-lg text-white border-b border-gray-800 pb-3">
+                    Información Personal & Redes
+                  </h2>
+
+                  <form onSubmit={handleSaveStudentProfile} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">Nombre Completo</label>
+                      <input
+                        type="text"
+                        value={profileForm.name}
+                        onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                        className="form-input"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-300 mb-1">Rol de Baile Principal</label>
+                        <select
+                          value={profileForm.danceRole}
+                          onChange={(e) => setProfileForm({ ...profileForm, danceRole: e.target.value })}
+                          className="form-input"
+                        >
+                          <option value="leader font-semibold">🕺 Leader (Guía)</option>
+                          <option value="follower">💃 Follower (Sigue)</option>
+                          <option value="both">✨ Ambos (Leader & Follower)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-300 mb-1">Instagram (@usuario)</label>
+                        <input
+                          type="text"
+                          value={profileForm.instagram}
+                          onChange={(e) => setProfileForm({ ...profileForm, instagram: e.target.value })}
+                          placeholder="@miusuario"
+                          className="form-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">TikTok (@usuario)</label>
+                      <input
+                        type="text"
+                        value={profileForm.tiktok}
+                        onChange={(e) => setProfileForm({ ...profileForm, tiktok: e.target.value })}
+                        placeholder="@miusuario"
+                        className="form-input"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">Sobre Mí / Biografía</label>
+                      <textarea
+                        rows={3}
+                        value={profileForm.bio}
+                        onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                        placeholder="Apasionadx del baile, bailando Bachata y Salsa desde..."
+                        className="form-input"
+                      />
+                    </div>
+
+                    {/* Switch de Privacidad de Rankings */}
+                    <div className="pt-4 border-t border-gray-800 space-y-2">
+                      <h3 className="font-heading font-bold text-sm text-purple-300">🛡️ Privacidad & Visibilidad en Rankings</h3>
+                      <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-500/20 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-semibold text-white text-xs">Aparecer en Rankings Públicos e Integrantes</p>
+                          <p className="text-[11px] text-gray-400 leading-snug">
+                            Si desactivas esta casilla, mantendremos tu perfil y tus rachas de asistencia de forma 100% privada.
+                          </p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={profileForm.showInRankings}
+                          onChange={(e) => setProfileForm({ ...profileForm, showInRankings: e.target.checked })}
+                          className="w-5 h-5 accent-purple-600 rounded cursor-pointer shrink-0"
+                        />
+                      </div>
+                    </div>
+
+                    <button type="submit" className="btn-primary text-xs py-2.5 px-5">
+                      💾 Guardar Cambios en Perfil
+                    </button>
+                  </form>
+                </div>
+
+                {/* Tarjeta de Rachas & Pasaporte */}
+                <div className="space-y-5">
+                  <div className="glass-panel p-6 space-y-4 border-purple-500/30 bg-gradient-to-b from-purple-950/40 to-slate-950">
+                    <span className="badge badge-purple text-xs">🔥 Racha en Sociales SBK</span>
+                    <h3 className="font-heading font-bold text-white text-lg">Tu Pasaporte de Baile</h3>
+                    <p className="text-xs text-gray-300">
+                      Asiste a los sociales organizados por la comunidad para desbloquear pases gratis.
+                    </p>
+
+                    <div className="p-4 rounded-2xl bg-slate-900 border border-purple-500/20 text-center space-y-2">
+                      <div className="text-3xl font-extrabold text-amber-400">3 / 4</div>
+                      <p className="text-xs text-purple-200 font-semibold">Asistencias en este Mes</p>
+                      <p className="text-[11px] text-gray-400">
+                        ¡Solo te falta <strong className="text-white">1 asistencia más</strong> para conseguir tu 5ª entrada GRATIS!
+                      </p>
+                    </div>
+
+                    <div className="pt-2">
+                      <p className="text-[11px] text-gray-400 font-semibold mb-2">Premios Desbloqueados:</p>
+                      <div className="space-y-1.5 text-xs">
+                        <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center justify-between">
+                          <span>🎟️ Descuento 10% en Social</span>
+                          <span className="font-bold">Usado</span>
+                        </div>
+                        <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-300 flex items-center justify-between">
+                          <span>🏆 Insignia "Bailarín Frecuente"</span>
+                          <span className="font-bold">Activo</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── TAB: GESTIÓN GLOBAL SAAS (SUPERADMIN) ─── */}
+          {activeTab === 'saas_management' && currentUser?.role === 'superadmin' && (
+            <div className="space-y-8 animate-fade-in">
+              <div>
+                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">
+                  👑 Control Global del SaaS (SuperAdmin)
+                </h1>
+                <p className="text-gray-400 text-sm mt-1">
+                  Administración de organizaciones, asignación de privilegios, planes de suscripción y monetización.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <StatCard title="Organizaciones Activas" value="12" subtitle="Escuelas en 4 ciudades" icon="🏛️" trend="+2 este mes" trendUp={true} />
+                <StatCard title="Comisiones Acumuladas" value="3.420 €" subtitle="Split 30% en ventas" icon="💰" trend="+15%" trendUp={true} />
+                <StatCard title="Sociales Destacados" value="8" subtitle="Boosts prioritarios activados" icon="⭐" trend="100% cobrado" trendUp={true} />
+              </div>
+
+              <div className="glass-panel p-6 space-y-4">
+                <h2 className="font-heading font-bold text-lg text-white">Planes de Suscripción para Escuelas</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-slate-900 border border-gray-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-white text-base">Plan Free</h3>
+                      <span className="badge badge-purple">Gratuito</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Hasta 4 publicaciones de eventos al mes. Funcionalidad estándar.</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-purple-950/40 border border-purple-500/40 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-white text-base">Plan Pro (Escuelas Ilimitadas)</h3>
+                      <span className="badge badge-cyan">49 € / mes</span>
+                    </div>
+                    <p className="text-xs text-gray-300">Publicaciones ilimitadas, Quests avanzadas de marca y soporte prioritario.</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1048,17 +1323,19 @@ export default function HomePage() {
                   <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Retos & Desafíos Comunitarios</h1>
                   <p className="text-gray-400 text-sm mt-1">Publicación y revisión de retos de baile sincronizados con la BD.</p>
                 </div>
-                <button
-                  onClick={() => {
-                    if (requireAuth()) {
-                      setModalType('quest');
-                      setIsModalOpen(true);
-                    }
-                  }}
-                  className="btn-primary text-xs"
-                >
-                  + Crear Reto
-                </button>
+                {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'superadmin') && (
+                  <button
+                    onClick={() => {
+                      if (requireAuth()) {
+                        setModalType('quest');
+                        setIsModalOpen(true);
+                      }
+                    }}
+                    className="btn-primary text-xs"
+                  >
+                    + Crear Reto
+                  </button>
+                )}
               </div>
 
               <div className="glass-panel p-6">
