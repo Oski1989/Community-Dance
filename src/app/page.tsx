@@ -34,20 +34,28 @@ export default function HomePage() {
     role: string;
     orgName?: string;
     bio?: string;
+    phone?: string;
+    birthdate?: string;
     danceRole?: string;
     instagram?: string;
     tiktok?: string;
+    facebook?: string;
+    youtube?: string;
     showInRankings?: boolean;
     avatar?: string;
   } | null>(null);
 
-  // Student Profile Form State
+  // Student & Staff Profile Form State
   const [profileForm, setProfileForm] = useState({
     name: '',
     bio: '',
+    phone: '',
+    birthdate: '',
     danceRole: 'both',
     instagram: '',
     tiktok: '',
+    facebook: '',
+    youtube: '',
     showInRankings: true,
     avatar: '💃',
   });
@@ -374,9 +382,13 @@ export default function HomePage() {
             .single();
 
           const bio = profData?.bio || '';
+          const phone = profData?.phone || '';
+          const birthdate = profData?.birthdate || '';
           const danceRole = profData?.dance_role || 'both';
           const instagram = profData?.instagram || '';
           const tiktok = profData?.tiktok || '';
+          const facebook = profData?.facebook || '';
+          const youtube = profData?.youtube || '';
           const showInRankings = profData?.show_in_rankings ?? true;
 
           setCurrentUser({
@@ -385,18 +397,26 @@ export default function HomePage() {
             email: u.email || '',
             role,
             bio,
+            phone,
+            birthdate,
             danceRole,
             instagram,
             tiktok,
+            facebook,
+            youtube,
             showInRankings,
           });
 
           setProfileForm({
             name,
             bio,
+            phone,
+            birthdate,
             danceRole,
             instagram,
             tiktok,
+            facebook,
+            youtube,
             showInRankings,
             avatar: '💃',
           });
@@ -552,9 +572,13 @@ export default function HomePage() {
         .update({
           full_name: profileForm.name,
           bio: profileForm.bio,
+          phone: profileForm.phone,
+          birthdate: profileForm.birthdate || null,
           dance_role: profileForm.danceRole,
           instagram: profileForm.instagram,
           tiktok: profileForm.tiktok,
+          facebook: profileForm.facebook,
+          youtube: profileForm.youtube,
           show_in_rankings: profileForm.showInRankings,
         })
         .eq('id', currentUser.id);
@@ -567,14 +591,18 @@ export default function HomePage() {
               ...prev,
               name: profileForm.name,
               bio: profileForm.bio,
+              phone: profileForm.phone,
+              birthdate: profileForm.birthdate,
               danceRole: profileForm.danceRole,
               instagram: profileForm.instagram,
               tiktok: profileForm.tiktok,
+              facebook: profileForm.facebook,
+              youtube: profileForm.youtube,
               showInRankings: profileForm.showInRankings,
             }
           : null
       );
-      setToastMessage('✅ Perfil y privacidad actualizados en la base de datos.');
+      setToastMessage('✅ Perfil y datos personales actualizados correctamente.');
     } catch (err: any) {
       setErrorMessage(err.message || 'Error al guardar el perfil en la base de datos.');
     }
@@ -872,73 +900,153 @@ export default function HomePage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Formulario de Perfil */}
                 <div className="lg:col-span-2 glass-panel p-6 space-y-5">
-                  <h2 className="font-heading font-bold text-lg text-white border-b border-gray-800 pb-3">
-                    Información Personal & Redes
-                  </h2>
+                  <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+                    <h2 className="font-heading font-bold text-lg text-white">
+                      Información Personal, Móvil & Redes
+                    </h2>
+                    <span className="badge badge-purple text-[11px]">Rol Actual: {currentUser?.role.toUpperCase()}</span>
+                  </div>
 
                   <form onSubmit={handleSaveStudentProfile} className="space-y-4">
+                    {/* Selector de Foto / Avatar */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-300 mb-1">Nombre Completo</label>
-                      <input
-                        type="text"
-                        value={profileForm.name}
-                        onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                        className="form-input"
-                        required
-                      />
+                      <label className="block text-xs font-semibold text-gray-300 mb-1.5">Avatar / Icono de Perfil</label>
+                      <div className="flex items-center gap-2">
+                        {['💃', '🕺', '✨', '🎧', '👑', '🏆', '🔥'].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => setProfileForm({ ...profileForm, avatar: emoji })}
+                            className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center border transition ${
+                              profileForm.avatar === emoji
+                                ? 'bg-purple-600/40 border-purple-400 scale-110 shadow'
+                                : 'bg-gray-900 border-gray-800 hover:bg-gray-800'
+                            }`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-300 mb-1">Nombre Completo</label>
+                        <input
+                          type="text"
+                          value={profileForm.name}
+                          onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                          className="form-input text-xs"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-300 mb-1">📱 Teléfono / Móvil</label>
+                        <input
+                          type="tel"
+                          value={profileForm.phone}
+                          onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                          placeholder="+34 600 000 000"
+                          className="form-input text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-300 mb-1">🎂 Cumpleaños / Fecha Nacimiento</label>
+                        <input
+                          type="date"
+                          value={profileForm.birthdate}
+                          onChange={(e) => setProfileForm({ ...profileForm, birthdate: e.target.value })}
+                          className="form-input text-xs"
+                        />
+                      </div>
+
                       <div>
                         <label className="block text-xs font-semibold text-gray-300 mb-1">Rol de Baile Principal</label>
                         <select
                           value={profileForm.danceRole}
                           onChange={(e) => setProfileForm({ ...profileForm, danceRole: e.target.value })}
-                          className="form-input"
+                          className="form-input text-xs"
                         >
-                          <option value="leader font-semibold">🕺 Leader (Guía)</option>
+                          <option value="leader">🕺 Leader (Guía)</option>
                           <option value="follower">💃 Follower (Sigue)</option>
                           <option value="both">✨ Ambos (Leader & Follower)</option>
                         </select>
                       </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-300 mb-1">Instagram (@usuario)</label>
-                        <input
-                          type="text"
-                          value={profileForm.instagram}
-                          onChange={(e) => setProfileForm({ ...profileForm, instagram: e.target.value })}
-                          placeholder="@miusuario"
-                          className="form-input"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-300 mb-1">TikTok (@usuario)</label>
-                      <input
-                        type="text"
-                        value={profileForm.tiktok}
-                        onChange={(e) => setProfileForm({ ...profileForm, tiktok: e.target.value })}
-                        placeholder="@miusuario"
-                        className="form-input"
-                      />
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-gray-300 mb-1">Sobre Mí / Biografía</label>
                       <textarea
-                        rows={3}
+                        rows={2}
                         value={profileForm.bio}
                         onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
                         placeholder="Apasionadx del baile, bailando Bachata y Salsa desde..."
-                        className="form-input"
+                        className="form-input text-xs"
                       />
+                    </div>
+
+                    {/* Redes Sociales */}
+                    <div className="pt-3 border-t border-gray-800 space-y-3">
+                      <h3 className="font-heading font-bold text-xs text-purple-300 uppercase tracking-wider">
+                        🌐 Redes Sociales & Presencia Digital
+                      </h3>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-400 mb-1">Instagram (@usuario)</label>
+                          <input
+                            type="text"
+                            value={profileForm.instagram}
+                            onChange={(e) => setProfileForm({ ...profileForm, instagram: e.target.value })}
+                            placeholder="@miusuario"
+                            className="form-input text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-400 mb-1">TikTok (@usuario)</label>
+                          <input
+                            type="text"
+                            value={profileForm.tiktok}
+                            onChange={(e) => setProfileForm({ ...profileForm, tiktok: e.target.value })}
+                            placeholder="@miusuario"
+                            className="form-input text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-400 mb-1">Facebook (Perfil / Página)</label>
+                          <input
+                            type="text"
+                            value={profileForm.facebook}
+                            onChange={(e) => setProfileForm({ ...profileForm, facebook: e.target.value })}
+                            placeholder="facebook.com/miusuario"
+                            className="form-input text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-400 mb-1">YouTube (Canal)</label>
+                          <input
+                            type="text"
+                            value={profileForm.youtube}
+                            onChange={(e) => setProfileForm({ ...profileForm, youtube: e.target.value })}
+                            placeholder="youtube.com/@micanal"
+                            className="form-input text-xs"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     {/* Switch de Privacidad de Rankings */}
                     <div className="pt-4 border-t border-gray-800 space-y-2">
-                      <h3 className="font-heading font-bold text-sm text-purple-300">🛡️ Privacidad & Visibilidad en Rankings</h3>
+                      <h3 className="font-heading font-bold text-xs text-purple-300 uppercase tracking-wider">
+                        🛡️ Privacidad & Visibilidad en Comunidad
+                      </h3>
                       <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-500/20 flex items-center justify-between gap-4">
                         <div>
                           <p className="font-semibold text-white text-xs">Aparecer en Rankings Públicos e Integrantes</p>

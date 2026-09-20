@@ -23,6 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     switch (currentRole) {
       case 'superadmin':
         return [
+          { id: 'student_profile', label: 'Mi Perfil & Ficha', icon: '👤' },
           { id: 'saas_management', label: 'Gestión Global SaaS', icon: '👑' },
           { id: 'dashboard', label: 'Resumen KPI & Dirección', icon: '📊' },
           { id: 'invitations', label: 'Gestión de Equipos & Roles', icon: '⚙️' },
@@ -31,6 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'owner':
       case 'admin':
         return [
+          { id: 'student_profile', label: 'Mi Perfil & Ficha', icon: '👤' },
           { id: 'dashboard', label: 'Resumen KPI & Dirección', icon: '📊' },
           { id: 'reservations', label: 'Reservas & Control Aforos', icon: '📅' },
           { id: 'attendance', label: 'Asistencia & Check-In', icon: '📋' },
@@ -40,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ];
       case 'teacher':
         return [
+          { id: 'student_profile', label: 'Mi Perfil & Ficha', icon: '👤' },
           { id: 'programs', label: 'Editar Temarios & Vídeos', icon: '💃' },
           { id: 'reservations', label: 'Reservas de Mis Clases', icon: '📅' },
           { id: 'attendance', label: 'Pasar Asistencia', icon: '📋' },
@@ -47,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ];
       case 'reception':
         return [
+          { id: 'student_profile', label: 'Mi Perfil & Ficha', icon: '👤' },
           { id: 'attendance', label: 'Check-In QR', icon: '📋' },
           { id: 'reservations', label: 'Gestión de Aforos', icon: '📅' },
           { id: 'payments', label: 'Cobro "A Cuenta"', icon: '💳' },

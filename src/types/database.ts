@@ -10,9 +10,13 @@ export interface Profile {
   nickname?: string | null;
   avatar_url?: string | null;
   bio?: string | null;
+  phone?: string | null;
+  birthdate?: string | null;
   dance_role?: DanceRolePreference;
   instagram?: string | null;
   tiktok?: string | null;
+  facebook?: string | null;
+  youtube?: string | null;
   show_in_rankings?: boolean;
   global_role: GlobalRole;
   created_at: string;

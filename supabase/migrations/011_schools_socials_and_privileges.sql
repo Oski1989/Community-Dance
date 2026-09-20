@@ -2,12 +2,15 @@
 -- MIGRATION 011: ESCUELAS, EVENTOS SOCIALES, CHECK-INS Y PRIVILEGIOS
 -- ============================================================================
 
--- 1. Actualizar tabla profiles con preferencias de alumno y privacidad
+-- 1. Actualizar tabla profiles con preferencias de alumno, cumpleaños, redes y privacidad
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS dance_role TEXT DEFAULT 'unspecified',
 ADD COLUMN IF NOT EXISTS bio TEXT,
+ADD COLUMN IF NOT EXISTS birthdate DATE,
 ADD COLUMN IF NOT EXISTS instagram TEXT,
 ADD COLUMN IF NOT EXISTS tiktok TEXT,
+ADD COLUMN IF NOT EXISTS facebook TEXT,
+ADD COLUMN IF NOT EXISTS youtube TEXT,
 ADD COLUMN IF NOT EXISTS show_in_rankings BOOLEAN DEFAULT TRUE;
 
 -- 2. Crear tabla de Escuelas (Privilegio dentro de una Organización/Tenant)
