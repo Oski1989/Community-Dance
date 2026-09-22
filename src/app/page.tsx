@@ -290,6 +290,48 @@ export default function HomePage() {
     actionType: 'delete',
   });
 
+  // Helper: Upload avatar image file or fallback to compressed Data URL
+  const uploadAvatarFile = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentUser?.id || 'user'}_${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (!uploadError) {
+        const { data: publicUrlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+        if (publicUrlData?.publicUrl) return publicUrlData.publicUrl;
+      }
+    } catch (e) {
+      console.warn('Storage upload note:', e);
+    }
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 300;
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = () => resolve(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Helper: Fetch all members/users from Supabase DB so ALL created users appear in SuperAdmin panel
   const fetchMembersFromSupabase = async () => {
     try {
@@ -375,17 +417,60 @@ export default function HomePage() {
       setToastMessage(`👑 Rol actualizado exitosamente a ${targetRole.toUpperCase()}.`);
 
       try {
-        if (targetRole === 'superadmin') {
-          await supabase.from('profiles').update({ system_role: 'superadmin', global_role: 'superadmin' }).eq('id', targetMemberId);
+        const isSuper = targetRole === 'superadmin';
+        await supabase.from('profiles').upsert({
+          id: targetMemberId,
+          system_role: isSuper ? 'superadmin' : 'user',
+          global_role: isSuper ? 'superadmin' : 'user',
+          updated_at: new Date().toISOString(),
+        });
+
+        const { data: existingMemberships } = await supabase
+          .from('organization_members')
+          .select('id, organization_id')
+          .eq('user_id', targetMemberId);
+
+        if (existingMemberships && existingMemberships.length > 0) {
+          for (const mem of existingMemberships) {
+            await supabase
+              .from('organization_members')
+              .update({
+                role: isSuper ? 'owner' : (targetRole as any),
+                is_active: true,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', mem.id);
+          }
         } else {
-          await supabase.from('profiles').update({ system_role: 'user', global_role: 'user' }).eq('id', targetMemberId);
-          await supabase.from('organization_members').upsert({
-            organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-            user_id: targetMemberId,
-            role: targetRole as any,
-            is_active: true,
-          }, { onConflict: 'organization_id,user_id' });
+          const { data: orgs } = await supabase
+            .from('organizations')
+            .select('id')
+            .limit(1);
+
+          let realOrgId = orgs?.[0]?.id;
+          if (!realOrgId) {
+            const { data: newOrg } = await supabase
+              .from('organizations')
+              .insert({
+                name: 'Plaza Dance Principal',
+                slug: 'plaza-dance-main',
+              })
+              .select('id')
+              .single();
+            realOrgId = newOrg?.id;
+          }
+
+          if (realOrgId) {
+            await supabase.from('organization_members').insert({
+              organization_id: realOrgId,
+              user_id: targetMemberId,
+              role: isSuper ? 'owner' : (targetRole as any),
+              is_active: true,
+            });
+          }
         }
+
+        await fetchMembersFromSupabase();
       } catch (err) {
         console.warn('Error actualizando rol en BD:', err);
       }
@@ -669,7 +754,8 @@ export default function HomePage() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: currentUser.id,
           full_name: profileForm.name,
           bio: profileForm.bio,
           phone: profileForm.phone,
@@ -681,10 +767,21 @@ export default function HomePage() {
           youtube: profileForm.youtube,
           show_in_rankings: profileForm.showInRankings,
           avatar_url: profileForm.avatarUrl || null,
-        })
-        .eq('id', currentUser.id);
+          updated_at: new Date().toISOString(),
+        });
 
       if (error) throw new Error(error.message);
+
+      if (profileForm.phone) {
+        await supabase
+          .from('profile_private')
+          .upsert({
+            user_id: currentUser.id,
+            email: currentUser.email,
+            phone: profileForm.phone,
+            updated_at: new Date().toISOString(),
+          });
+      }
 
       setCurrentUser((prev) =>
         prev
@@ -704,7 +801,24 @@ export default function HomePage() {
             }
           : null
       );
-      setToastMessage('✅ Perfil y datos personales actualizados correctamente.');
+
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === currentUser.id
+            ? {
+                ...m,
+                name: profileForm.name,
+                avatarUrl: profileForm.avatarUrl,
+                bio: profileForm.bio,
+                instagram: profileForm.instagram,
+                tiktok: profileForm.tiktok,
+              }
+            : m
+        )
+      );
+
+      setToastMessage('✅ Perfil y foto guardados correctamente en la base de datos.');
+      await fetchMembersFromSupabase();
     } catch (err: any) {
       setErrorMessage(err.message || 'Error al guardar el perfil en la base de datos.');
     }
@@ -1035,14 +1149,13 @@ export default function HomePage() {
                                 type="file"
                                 accept="image/*"
                                 className="hidden"
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (file) {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => {
-                                      setProfileForm({ ...profileForm, avatarUrl: reader.result as string });
-                                    };
-                                    reader.readAsDataURL(file);
+                                    const uploadedUrl = await uploadAvatarFile(file);
+                                    if (uploadedUrl) {
+                                      setProfileForm((prev) => ({ ...prev, avatarUrl: uploadedUrl }));
+                                    }
                                   }
                                 }}
                               />
