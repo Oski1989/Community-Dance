@@ -290,19 +290,105 @@ export default function HomePage() {
     actionType: 'delete',
   });
 
+  // Helper: Fetch all members/users from Supabase DB so ALL created users appear in SuperAdmin panel
+  const fetchMembersFromSupabase = async () => {
+    try {
+      const { data: dbProfiles } = await supabase.from('profiles').select('*');
+      const { data: dbOrgMembers } = await supabase.from('organization_members').select('*');
+      const { data: dbPrivateProfiles } = await supabase.from('profile_private').select('*');
+
+      if (dbProfiles && dbProfiles.length > 0) {
+        const orgMap = new Map<string, { role: string; is_active: boolean }>();
+        if (dbOrgMembers) {
+          dbOrgMembers.forEach((om) => {
+            orgMap.set(om.user_id, { role: om.role, is_active: om.is_active });
+          });
+        }
+
+        const privMap = new Map<string, string>();
+        if (dbPrivateProfiles) {
+          dbPrivateProfiles.forEach((pp) => {
+            if (pp.user_id && pp.email) privMap.set(pp.user_id, pp.email);
+          });
+        }
+
+        const mappedDbMembers = dbProfiles.map((p) => {
+          const orgInfo = orgMap.get(p.id);
+          let role = 'student';
+
+          if (p.system_role === 'superadmin' || p.global_role === 'superadmin') {
+            role = 'superadmin';
+          } else if (orgInfo?.role) {
+            role = orgInfo.role;
+          }
+
+          const email = p.email || privMap.get(p.id) || `${p.full_name?.toLowerCase().replace(/\s+/g, '') || 'usuario'}@plazadance.com`;
+          const status = orgInfo?.is_active === false ? 'Inactivo' : 'Activo';
+
+          return {
+            id: p.id,
+            name: p.full_name || 'Usuario',
+            email,
+            role,
+            status,
+            isPublic: p.show_in_rankings ?? true,
+            discipline: p.discipline || 'Salsa & Bachata',
+            danceRole: p.dance_role || 'both',
+            instagram: p.instagram || '',
+            tiktok: p.tiktok || '',
+            bio: p.bio || '',
+            avatar: p.avatar || '👤',
+            avatarUrl: p.avatar_url || '',
+          };
+        });
+
+        setMembers((prev) => {
+          const existingIds = new Set(mappedDbMembers.map((m) => m.id));
+          const mockFallbacks = prev.filter((m) => !existingIds.has(m.id));
+          return [...mappedDbMembers, ...mockFallbacks];
+        });
+      }
+    } catch (err) {
+      console.warn('Sync members notice:', err);
+    }
+  };
+
   // Handler to Execute Confirmed Security Action
-  const handleExecuteConfirmAction = () => {
+  const handleExecuteConfirmAction = async () => {
     const { actionType, targetMemberId, targetRole } = securityConfirmModal;
     if (!targetMemberId) return;
 
     if (actionType === 'delete') {
       setMembers(members.filter((m) => m.id !== targetMemberId));
       setToastMessage('🗑️ Cuenta de usuario eliminada de la base de datos.');
+
+      try {
+        await supabase.from('organization_members').delete().eq('user_id', targetMemberId);
+        await supabase.from('profiles').delete().eq('id', targetMemberId);
+      } catch (err) {
+        console.warn('Error eliminando miembro de la BD:', err);
+      }
     } else if (actionType === 'change_role' && targetRole) {
       setMembers(
         members.map((m) => (m.id === targetMemberId ? { ...m, role: targetRole } : m))
       );
       setToastMessage(`👑 Rol actualizado exitosamente a ${targetRole.toUpperCase()}.`);
+
+      try {
+        if (targetRole === 'superadmin') {
+          await supabase.from('profiles').update({ system_role: 'superadmin', global_role: 'superadmin' }).eq('id', targetMemberId);
+        } else {
+          await supabase.from('profiles').update({ system_role: 'user', global_role: 'user' }).eq('id', targetMemberId);
+          await supabase.from('organization_members').upsert({
+            organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+            user_id: targetMemberId,
+            role: targetRole as any,
+            is_active: true,
+          }, { onConflict: 'organization_id,user_id' });
+        }
+      } catch (err) {
+        console.warn('Error actualizando rol en BD:', err);
+      }
     }
 
     setSecurityConfirmModal({
@@ -479,6 +565,9 @@ export default function HomePage() {
             }))
           );
         }
+
+        // Fetch All DB Profiles & Members so SuperAdmin has full visibility
+        await fetchMembersFromSupabase();
       } catch (err) {
         console.warn('Initialization note:', err);
       }
@@ -515,6 +604,7 @@ export default function HomePage() {
   const handleAuthSuccess = (user: { id?: string; name: string; email: string; role: string }) => {
     setCurrentUser(user);
     setToastMessage(`👋 Sesión iniciada como ${user.name} (${user.role.toUpperCase()}).`);
+    fetchMembersFromSupabase();
   };
 
   // Handle Open Program Editor
@@ -818,6 +908,7 @@ export default function HomePage() {
       setNewMemberEmail('');
       setIsModalOpen(false);
       setToastMessage(`📩 Invitación enviada y guardada en BD para ${newMemberEmail}.`);
+      fetchMembersFromSupabase();
     } catch (err: any) {
       setErrorMessage(err.message || 'Error al guardar invitación en la base de datos.');
     }
@@ -1671,10 +1762,20 @@ export default function HomePage() {
                           </td>
                           <td className="py-3">
                             <button
-                              onClick={() => {
-                                const updatedStatus = m.status === 'Activo' ? 'Inactivo' : 'Activo';
+                              onClick={async () => {
+                                const updatedStatus = m.status.includes('Activo') ? 'Inactivo' : 'Activo';
                                 setMembers(members.map((item) => (item.id === m.id ? { ...item, status: updatedStatus } : item)));
                                 setToastMessage(`Estado de ${m.name} cambiado a ${updatedStatus}.`);
+                                try {
+                                  await supabase.from('organization_members').upsert({
+                                    organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+                                    user_id: m.id,
+                                    role: m.role === 'superadmin' ? 'owner' : (m.role as any),
+                                    is_active: updatedStatus === 'Activo',
+                                  }, { onConflict: 'organization_id,user_id' });
+                                } catch (err) {
+                                  console.warn('Error actualizando estado en BD:', err);
+                                }
                               }}
                               className={`badge cursor-pointer transition hover:scale-105 ${m.status.includes('Activo') ? 'badge-emerald' : 'badge-amber'}`}
                             >
