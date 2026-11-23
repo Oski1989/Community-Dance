@@ -7,22 +7,20 @@ import { StatCard, Modal } from '@/components/ui/StatCard';
 import { AuthModal } from '@/components/ui/AuthModal';
 import { NotificationsModal, NotificationItem } from '@/components/ui/NotificationsModal';
 import { supabase } from '@/lib/supabase/client';
+import {
+  dbService,
+  UserProfile,
+  ProgramItem,
+  SessionItem,
+  QuestItem,
+  CommunityPostItem,
+  SocialEventItem,
+} from '@/services/db.service';
 
 interface ModuleItem {
   id: string;
   title: string;
   videoUrl: string;
-}
-
-interface ProgramItem {
-  id: string;
-  name: string;
-  discipline: string;
-  level: string;
-  description?: string;
-  modulesCount: number;
-  xpPoints: number;
-  modules: ModuleItem[];
 }
 
 export default function HomePage() {
@@ -61,9 +59,11 @@ export default function HomePage() {
     avatar: '💃',
     avatarUrl: '',
   });
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isGuestBannerDismissed, setIsGuestBannerDismissed] = useState<boolean>(false);
   const [activeOrgName, setActiveOrgName] = useState<string>('Plaza Dance');
+  const [activeOrgId, setActiveOrgId] = useState<string>('');
 
   // App Navigation & UI State
   const [activeTab, setActiveTab] = useState<string>('programs');
@@ -77,191 +77,20 @@ export default function HomePage() {
   const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState<boolean>(false);
   const [editingProgram, setEditingProgram] = useState<ProgramItem | null>(null);
 
-  // Notifications State
+  // Notifications State (Starts empty, no mocks)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: 'n1',
-      title: 'Reserva Confirmada',
-      message: 'Elena Gómez ha reservado plaza en Salsa Cubana (Hoy 19:00).',
-      time: 'Hace 5 min',
-      type: 'reservation',
-      read: false,
-    },
-    {
-      id: 'n2',
-      title: 'Nuevo Reto Entregado',
-      message: 'Roberto Fernández subió un vídeo para el reto: Onda Sensual Bachata.',
-      time: 'Hace 30 min',
-      type: 'quest',
-      read: false,
-    },
-  ]);
-
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
-  // Initial Core Data
-  const [programs, setPrograms] = useState<ProgramItem[]>([
-    {
-      id: 'p1',
-      name: 'Salsa Cubana y Rueda de Casino',
-      discipline: 'Salsa',
-      level: 'Intermedio',
-      description: 'Estructura modular con vídeos de técnica de Rueda de Casino y paseos complejos.',
-      modulesCount: 3,
-      xpPoints: 120,
-      modules: [
-        { id: 'm1', title: 'Módulo 1: Paseo y Guapea con Estilo', videoUrl: 'https://youtube.com/watch?v=salsa_guapea_demo' },
-        { id: 'm2', title: 'Módulo 2: Enchufla Doble y Vacilala', videoUrl: 'https://youtube.com/watch?v=salsa_enchufla_demo' },
-        { id: 'm3', title: 'Módulo 3: Setenta y Cambios de Rueda', videoUrl: 'https://youtube.com/watch?v=salsa_setenta_demo' },
-      ],
-    },
-    {
-      id: 'p2',
-      name: 'Bachata Sensual & Flow',
-      discipline: 'Bachata',
-      level: 'Avanzado',
-      description: 'Técnica de aislamiento de torso, ondas corporales y conducción fluida en pareja.',
-      modulesCount: 2,
-      xpPoints: 180,
-      modules: [
-        { id: 'm10', title: 'Módulo 1: Disociación de Cadera y Torso', videoUrl: 'https://youtube.com/watch?v=bachata_ondulation' },
-        { id: 'm11', title: 'Módulo 2: Conducción en Onda Superior', videoUrl: 'https://youtube.com/watch?v=bachata_leading' },
-      ],
-    },
-    {
-      id: 'p3',
-      name: 'Kizomba Fusion',
-      discipline: 'Kizomba',
-      level: 'Iniciación',
-      description: 'Fundamentos de caminada, saídas laterales y conexión en abrazo cerrado.',
-      modulesCount: 2,
-      xpPoints: 90,
-      modules: [
-        { id: 'm20', title: 'Módulo 1: Caminada Básica en 3 Tiempos', videoUrl: 'https://youtube.com/watch?v=kizomba_caminada' },
-        { id: 'm21', title: 'Módulo 2: Saída Esquerda y Dirita', videoUrl: 'https://youtube.com/watch?v=kizomba_saida' },
-      ],
-    },
-  ]);
+  // Real Database Entities State (Starts empty, no mocks)
+  const [programs, setPrograms] = useState<ProgramItem[]>([]);
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [quests, setQuests] = useState<QuestItem[]>([]);
+  const [communityPosts, setCommunityPosts] = useState<CommunityPostItem[]>([]);
+  const [members, setMembers] = useState<UserProfile[]>([]);
+  const [socialEvents, setSocialEvents] = useState<SocialEventItem[]>([]);
 
-  const [sessions, setSessions] = useState([
-    { id: 's1', name: 'Salsa Cubana Nivel 2', time: 'Hoy 19:00 - 20:00', confirmed: 14, capacity: 16, leaders: 7, followers: 7, waitlist: 2 },
-    { id: 's2', name: 'Bachata Sensual Parejas', time: 'Hoy 20:00 - 21:00', confirmed: 18, capacity: 18, leaders: 9, followers: 9, waitlist: 4 },
-    { id: 's3', name: 'Kizomba Iniciación', time: 'Mañana 18:30 - 19:30', confirmed: 8, capacity: 14, leaders: 4, followers: 4, waitlist: 0 },
-  ]);
-
-  const [quests, setQuests] = useState([
-    { id: 'q1', title: 'Paso Básico Salsa en 8 Tiempos', program: 'Salsa Cubana', points: 20, status: 'approved', teacher: 'Carlos Profesor' },
-    { id: 'q2', title: 'Onda Sensual Bachata sin Perder Ritmo', program: 'Bachata Sensual', points: 30, status: 'submitted', teacher: 'Carlos Profesor' },
-    { id: 'q3', title: 'Saida Esquerda Kizomba', program: 'Kizomba', points: 15, status: 'in_progress', teacher: 'Carlos Profesor' },
-  ]);
-
-  const [communityPosts, setCommunityPosts] = useState([
-    { id: 'c1', user: 'Elena Gómez', role: 'ALUMNO', time: 'Hace 2 horas', content: '¡Increíble la clase de Bachata Sensual de ayer! 🔥 ¿Quién viene al social del viernes?', likes: 12 },
-    { id: 'c2', user: 'Carlos Profesor', role: 'PROFESOR', time: 'Hace 5 horas', content: 'Recordatorio a los alumnos de Salsa Intermedio: Ya tenéis activo el nuevo Reto de Rueda de Casino en la sección de Quests 💃', likes: 24 },
-  ]);
-
-  const [members, setMembers] = useState<Array<{
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    status: string;
-    isPublic: boolean;
-    discipline: string;
-    danceRole?: string;
-    instagram?: string;
-    tiktok?: string;
-    bio?: string;
-    avatar?: string;
-  }>>([
-    {
-      id: 'm1',
-      name: 'Óscar Director',
-      email: 'director@plazadance.com',
-      role: 'owner',
-      status: 'Activo',
-      isPublic: true,
-      discipline: 'Salsa & Bachata',
-      danceRole: 'Leader & Follower',
-      instagram: '@oscar_plazadance',
-      tiktok: '@oscar_salsa',
-      bio: 'Director fundador de Plaza Dance. Más de 15 años formando bailadores en Madrid.',
-      avatar: '👨‍💼',
-    },
-    {
-      id: 'm2',
-      name: 'Carlos Profesor',
-      email: 'profesor@plazadance.com',
-      role: 'teacher',
-      status: 'Activo',
-      isPublic: true,
-      discipline: 'Salsa Cubana',
-      danceRole: 'Leader',
-      instagram: '@carlos_salsacubana',
-      tiktok: '@carlos_pasos',
-      bio: 'Especialista en Salsa Cubana tradicional, afrocubano y animación de grupos.',
-      avatar: '🕺',
-    },
-    {
-      id: 'm3',
-      name: 'Laura Recepción',
-      email: 'recepcion@plazadance.com',
-      role: 'reception',
-      status: 'Activo',
-      isPublic: true,
-      discipline: 'Gestión Escuela',
-      danceRole: 'Follower',
-      instagram: '@laura_plazadance',
-      tiktok: '',
-      bio: 'Coordinadora de eventos y atención a alumnos en Plaza Dance.',
-      avatar: '👩‍💼',
-    },
-    {
-      id: 'm4',
-      name: 'Elena Alumna',
-      email: 'alumno@plazadance.com',
-      role: 'student',
-      status: 'Activo',
-      isPublic: true,
-      discipline: 'Bachata Sensual',
-      danceRole: 'Follower',
-      instagram: '@elena_bachata',
-      tiktok: '@elena_dance',
-      bio: 'Apasionada por la bachata sensual y Lady Style.',
-      avatar: '💃',
-    },
-    {
-      id: 'm5',
-      name: 'Roberto Fernández',
-      email: 'roberto@email.com',
-      role: 'student',
-      status: 'Activo',
-      isPublic: true,
-      discipline: 'Kizomba Fusion',
-      danceRole: 'Leader',
-      instagram: '@rober_kiz',
-      tiktok: '',
-      bio: 'Bailador de Kizomba y Semba desde 2021.',
-      avatar: '🕺',
-    },
-    {
-      id: 'm6',
-      name: 'Sofía Martínez',
-      email: 'sofia@email.com',
-      role: 'student',
-      status: 'Activo',
-      isPublic: false,
-      discipline: 'Lady Style',
-      danceRole: 'Follower',
-      instagram: '@sofia_dance',
-      tiktok: '',
-      bio: 'Entrenando técnica de giros y estilo femenino.',
-      avatar: '💃',
-    },
-  ]);
-
-  // Guest & Directory Filter States
+  // Directory Filters State
   const [filterDiscipline, setFilterDiscipline] = useState<string>('all');
   const [filterLevel, setFilterLevel] = useState<string>('all');
   const [memberSearch, setMemberSearch] = useState<string>('');
@@ -269,9 +98,9 @@ export default function HomePage() {
   const [onlyVisibleMembers, setOnlyVisibleMembers] = useState<boolean>(true);
 
   // Selected Member Profile Modal State
-  const [selectedMemberProfile, setSelectedMemberProfile] = useState<any | null>(null);
+  const [selectedMemberProfile, setSelectedMemberProfile] = useState<UserProfile | null>(null);
 
-  // Security Confirmation Modal State (with captcha verification text)
+  // Security Confirmation Modal State
   const [securityConfirmModal, setSecurityConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -289,6 +118,42 @@ export default function HomePage() {
     typedWord: '',
     actionType: 'delete',
   });
+
+  // Creation Modal States
+  // 1. Member creation (Direct or Invitation)
+  const [memberCreateMode, setMemberCreateMode] = useState<'direct' | 'invite'>('direct');
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [newMemberPassword, setNewMemberPassword] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('student');
+  const [newMemberDiscipline, setNewMemberDiscipline] = useState('Salsa & Bachata');
+  const [newMemberDanceRole, setNewMemberDanceRole] = useState('both');
+  const [newMemberPhone, setNewMemberPhone] = useState('');
+  const [newMemberBio, setNewMemberBio] = useState('');
+
+  // 2. Program creation
+  const [newProgramName, setNewProgramName] = useState('');
+  const [newProgramDiscipline, setNewProgramDiscipline] = useState('Salsa');
+  const [newProgramLevel, setNewProgramLevel] = useState('Iniciación');
+
+  // 3. Quest creation
+  const [newQuestTitle, setNewQuestTitle] = useState('');
+  const [newQuestPoints, setNewQuestPoints] = useState(20);
+
+  // 4. Community Post creation
+  const [newPostContent, setNewPostContent] = useState('');
+
+  // 5. Session creation
+  const [newSessionName, setNewSessionName] = useState('');
+  const [newSessionTime, setNewSessionTime] = useState('19:00 - 20:00');
+  const [newSessionCapacity, setNewSessionCapacity] = useState(20);
+
+  // 6. Social Event creation
+  const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventDate, setNewEventDate] = useState('Este Viernes, 23:00 - 03:00');
+  const [newEventLocation, setNewEventLocation] = useState('Plaza Dance Club');
+  const [newEventPrice, setNewEventPrice] = useState('10 € (Incluye consumición)');
+  const [newEventDescription, setNewEventDescription] = useState('Fiesta social SBK abierta para todos los niveles.');
 
   // Helper: Upload avatar image file or fallback to compressed Data URL
   const uploadAvatarFile = async (file: File): Promise<string | null> => {
@@ -332,148 +197,35 @@ export default function HomePage() {
     });
   };
 
-  // Helper: Fetch all members/users from Supabase DB so ALL created users appear in SuperAdmin panel
-  const fetchMembersFromSupabase = async () => {
+  // Helper: Fetch all members from real database (ZERO MOCK FALLBACKS)
+  const fetchMembersFromDB = async () => {
     try {
-      const { data: dbProfiles } = await supabase.from('profiles').select('*');
-      const { data: dbOrgMembers } = await supabase.from('organization_members').select('*');
-      const { data: dbPrivateProfiles } = await supabase.from('profile_private').select('*');
-
-      if (dbProfiles && dbProfiles.length > 0) {
-        const orgMap = new Map<string, { role: string; is_active: boolean }>();
-        if (dbOrgMembers) {
-          dbOrgMembers.forEach((om) => {
-            orgMap.set(om.user_id, { role: om.role, is_active: om.is_active });
-          });
-        }
-
-        const privMap = new Map<string, string>();
-        if (dbPrivateProfiles) {
-          dbPrivateProfiles.forEach((pp) => {
-            if (pp.user_id && pp.email) privMap.set(pp.user_id, pp.email);
-          });
-        }
-
-        const mappedDbMembers = dbProfiles.map((p) => {
-          const orgInfo = orgMap.get(p.id);
-          let role = 'student';
-
-          if (p.system_role === 'superadmin' || p.global_role === 'superadmin') {
-            role = 'superadmin';
-          } else if (orgInfo?.role) {
-            role = orgInfo.role;
-          }
-
-          const email = p.email || privMap.get(p.id) || `${p.full_name?.toLowerCase().replace(/\s+/g, '') || 'usuario'}@plazadance.com`;
-          const status = orgInfo?.is_active === false ? 'Inactivo' : 'Activo';
-
-          return {
-            id: p.id,
-            name: p.full_name || 'Usuario',
-            email,
-            role,
-            status,
-            isPublic: p.show_in_rankings ?? true,
-            discipline: p.discipline || 'Salsa & Bachata',
-            danceRole: p.dance_role || 'both',
-            instagram: p.instagram || '',
-            tiktok: p.tiktok || '',
-            bio: p.bio || '',
-            avatar: p.avatar || '👤',
-            avatarUrl: p.avatar_url || '',
-          };
-        });
-
-        setMembers((prev) => {
-          const existingIds = new Set(mappedDbMembers.map((m) => m.id));
-          const mockFallbacks = prev.filter((m) => !existingIds.has(m.id));
-          return [...mappedDbMembers, ...mockFallbacks];
-        });
-      }
+      const dbMembers = await dbService.getMembers();
+      setMembers(dbMembers);
     } catch (err) {
-      console.warn('Sync members notice:', err);
+      console.warn('Sync members error:', err);
     }
   };
 
-  // Handler to Execute Confirmed Security Action
+  // Handler to Execute Confirmed Security Action (Delete / Change Role)
   const handleExecuteConfirmAction = async () => {
     const { actionType, targetMemberId, targetRole } = securityConfirmModal;
     if (!targetMemberId) return;
 
-    if (actionType === 'delete') {
-      setMembers(members.filter((m) => m.id !== targetMemberId));
-      setToastMessage('🗑️ Cuenta de usuario eliminada de la base de datos.');
-
-      try {
-        await supabase.from('organization_members').delete().eq('user_id', targetMemberId);
-        await supabase.from('profiles').delete().eq('id', targetMemberId);
-      } catch (err) {
-        console.warn('Error eliminando miembro de la BD:', err);
+    try {
+      if (actionType === 'delete') {
+        await dbService.deleteMember(targetMemberId);
+        setMembers((prev) => prev.filter((m) => m.id !== targetMemberId));
+        setToastMessage('🗑️ Cuenta de usuario eliminada permanentemente de la base de datos.');
+      } else if (actionType === 'change_role' && targetRole) {
+        await dbService.updateMemberRole(targetMemberId, targetRole);
+        setMembers((prev) =>
+          prev.map((m) => (m.id === targetMemberId ? { ...m, role: targetRole } : m))
+        );
+        setToastMessage(`👑 Rol actualizado exitosamente a ${targetRole.toUpperCase()} en la base de datos.`);
       }
-    } else if (actionType === 'change_role' && targetRole) {
-      setMembers(
-        members.map((m) => (m.id === targetMemberId ? { ...m, role: targetRole } : m))
-      );
-      setToastMessage(`👑 Rol actualizado exitosamente a ${targetRole.toUpperCase()}.`);
-
-      try {
-        const isSuper = targetRole === 'superadmin';
-        await supabase.from('profiles').upsert({
-          id: targetMemberId,
-          system_role: isSuper ? 'superadmin' : 'user',
-          global_role: isSuper ? 'superadmin' : 'user',
-          updated_at: new Date().toISOString(),
-        });
-
-        const { data: existingMemberships } = await supabase
-          .from('organization_members')
-          .select('id, organization_id')
-          .eq('user_id', targetMemberId);
-
-        if (existingMemberships && existingMemberships.length > 0) {
-          for (const mem of existingMemberships) {
-            await supabase
-              .from('organization_members')
-              .update({
-                role: isSuper ? 'owner' : (targetRole as any),
-                is_active: true,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', mem.id);
-          }
-        } else {
-          const { data: orgs } = await supabase
-            .from('organizations')
-            .select('id')
-            .limit(1);
-
-          let realOrgId = orgs?.[0]?.id;
-          if (!realOrgId) {
-            const { data: newOrg } = await supabase
-              .from('organizations')
-              .insert({
-                name: 'Plaza Dance Principal',
-                slug: 'plaza-dance-main',
-              })
-              .select('id')
-              .single();
-            realOrgId = newOrg?.id;
-          }
-
-          if (realOrgId) {
-            await supabase.from('organization_members').insert({
-              organization_id: realOrgId,
-              user_id: targetMemberId,
-              role: isSuper ? 'owner' : (targetRole as any),
-              is_active: true,
-            });
-          }
-        }
-
-        await fetchMembersFromSupabase();
-      } catch (err) {
-        console.warn('Error actualizando rol en BD:', err);
-      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al ejecutar la acción en la base de datos.');
     }
 
     setSecurityConfirmModal({
@@ -486,54 +238,16 @@ export default function HomePage() {
     });
   };
 
-  // Social Events Data
-  const [socialEvents] = useState([
-    {
-      id: 'soc_1',
-      title: 'Viernes Social SBK & Fiesta Guaguancó',
-      date: 'Este Viernes, 23:00 - 03:30',
-      location: 'Plaza Dance Main Club - Sala Principal',
-      description: 'Fiesta con 3 salas abiertas: Salsa Cubana, Bachata Sensual y Kizomba Lounge. Taller previo a las 22:00 incluido.',
-      price: '10 € (Incluye consumición)',
-      organizer: 'Dirección Plaza Dance',
-      badge: 'Salsa & Bachata',
-    },
-    {
-      id: 'soc_2',
-      title: 'Sábado Bachata Sensual & Flow Night',
-      date: 'Este Sábado, 22:30 - 03:00',
-      location: 'Plaza Dance Studio 1',
-      description: 'Sesión 100% Bachata Sensual, Moderna y Tradicional con DJ Residente y animaciones de profesores invitados.',
-      price: '12 € (Incluye copa o 2 refrescos)',
-      organizer: 'Carlos Profesor',
-      badge: 'Bachata Special',
-    },
-    {
-      id: 'soc_3',
-      title: 'Domingo Kizomba & Semba Matinée',
-      date: 'Domingo, 18:00 - 22:00',
-      location: 'Plaza Dance Lounge',
-      description: 'Tarde de conexión kizombera, música suave y práctica libre para todos los niveles.',
-      price: '8 € (Incluye refresco o cerveza)',
-      organizer: 'Kizomba Team',
-      badge: 'Kizomba Lounge',
-    },
-  ]);
-
-  // Form States
-  const [newProgramName, setNewProgramName] = useState('');
-  const [newProgramDiscipline, setNewProgramDiscipline] = useState('Salsa');
-  const [newProgramLevel, setNewProgramLevel] = useState('Iniciación');
-  const [newQuestTitle, setNewQuestTitle] = useState('');
-  const [newQuestPoints, setNewQuestPoints] = useState(20);
-  const [newPostContent, setNewPostContent] = useState('');
-  const [newMemberEmail, setNewMemberEmail] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState('teacher');
-
-  // Check Active Supabase Session on Mount & Fetch DB Data
+  // Check Active Supabase Session on Mount & Fetch Real DB Data
   useEffect(() => {
     const initAuthAndData = async () => {
       try {
+        // 1. Initialize Active Organization
+        const org = await dbService.getPrimaryOrganization();
+        setActiveOrgName(org.name);
+        setActiveOrgId(org.id);
+
+        // 2. Check Auth Session
         const { data: authData } = await supabase.auth.getSession();
         if (authData.session?.user) {
           const u = authData.session.user;
@@ -544,20 +258,21 @@ export default function HomePage() {
             .from('profiles')
             .select('*')
             .eq('id', u.id)
-            .single();
+            .maybeSingle();
 
-          // Determine role: system_role takes priority over org role
           let role = 'student';
-          if (profData?.system_role === 'superadmin') {
+          if (profData?.system_role === 'superadmin' || profData?.global_role === 'superadmin') {
             role = 'superadmin';
           } else {
             const { data: memberData } = await supabase
               .from('organization_members')
               .select('role')
               .eq('user_id', u.id)
-              .single();
+              .maybeSingle();
             if (memberData?.role) role = memberData.role;
           }
+
+          if (profData?.full_name) name = profData.full_name;
 
           const bio = profData?.bio || '';
           const phone = profData?.phone || '';
@@ -603,58 +318,24 @@ export default function HomePage() {
           });
         }
 
-        // Fetch DB Programs if available
-        const { data: dbPrograms } = await supabase.from('programs').select('*');
-        if (dbPrograms && dbPrograms.length > 0) {
-          const mapped: ProgramItem[] = dbPrograms.map((p) => ({
-            id: p.id,
-            name: p.name,
-            discipline: p.discipline || 'Salsa',
-            level: 'Todos los Niveles',
-            description: p.description || '',
-            modulesCount: 2,
-            xpPoints: 100,
-            modules: [
-              { id: `m_${p.id}_1`, title: 'Módulo 1: Fundamentos', videoUrl: 'https://youtube.com' },
-            ],
-          }));
-          setPrograms(mapped);
-        }
+        // 3. Load all real entities from Database (No mock data)
+        const [dbMembers, dbProgs, dbSess, dbQ, dbPosts, dbSoc] = await Promise.all([
+          dbService.getMembers(),
+          dbService.getPrograms(),
+          dbService.getSessions(),
+          dbService.getQuests(),
+          dbService.getCommunityPosts(),
+          dbService.getSocialEvents(),
+        ]);
 
-        // Fetch DB Quests if available
-        const { data: dbQuests } = await supabase.from('quests').select('*');
-        if (dbQuests && dbQuests.length > 0) {
-          setQuests(
-            dbQuests.map((q) => ({
-              id: q.id,
-              title: q.title,
-              program: 'General',
-              points: q.points_reward || 20,
-              status: 'submitted',
-              teacher: 'Profesor',
-            }))
-          );
-        }
-
-        // Fetch DB Community Posts if available
-        const { data: dbPosts } = await supabase.from('community_posts').select('*');
-        if (dbPosts && dbPosts.length > 0) {
-          setCommunityPosts(
-            dbPosts.map((p) => ({
-              id: p.id,
-              user: 'Usuario',
-              role: 'MIEMBRO',
-              time: new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              content: p.content,
-              likes: p.likes_count || 0,
-            }))
-          );
-        }
-
-        // Fetch All DB Profiles & Members so SuperAdmin has full visibility
-        await fetchMembersFromSupabase();
+        setMembers(dbMembers);
+        setPrograms(dbProgs);
+        setSessions(dbSess);
+        setQuests(dbQ);
+        setCommunityPosts(dbPosts);
+        setSocialEvents(dbSoc);
       } catch (err) {
-        console.warn('Initialization note:', err);
+        console.warn('Initialization notice:', err);
       }
     };
 
@@ -670,7 +351,7 @@ export default function HomePage() {
     return true;
   };
 
-  // Handle Logout (Complete Supabase & Storage Cleanup)
+  // Handle Logout
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -678,7 +359,6 @@ export default function HomePage() {
       console.warn('Sign-out notice:', err);
     }
     if (typeof window !== 'undefined') {
-      window.localStorage.clear();
       window.sessionStorage.clear();
     }
     setCurrentUser(null);
@@ -686,10 +366,10 @@ export default function HomePage() {
   };
 
   // Handle Auth Success
-  const handleAuthSuccess = (user: { id?: string; name: string; email: string; role: string }) => {
+  const handleAuthSuccess = async (user: { id?: string; name: string; email: string; role: string }) => {
     setCurrentUser(user);
     setToastMessage(`👋 Sesión iniciada como ${user.name} (${user.role.toUpperCase()}).`);
-    fetchMembersFromSupabase();
+    await fetchMembersFromDB();
   };
 
   // Handle Open Program Editor
@@ -705,7 +385,7 @@ export default function HomePage() {
     const newMod: ModuleItem = {
       id: `m_${Date.now()}`,
       title: `Módulo ${editingProgram.modules.length + 1}: Nuevos Pasos Técnicos`,
-      videoUrl: 'https://youtube.com/watch?v=ejemplo',
+      videoUrl: 'https://youtube.com',
     };
     setEditingProgram({
       ...editingProgram,
@@ -721,20 +401,7 @@ export default function HomePage() {
     setErrorMessage('');
 
     try {
-      const { error } = await supabase
-        .from('programs')
-        .update({
-          name: editingProgram.name,
-          discipline: editingProgram.discipline,
-          description: editingProgram.description,
-        })
-        .eq('id', editingProgram.id);
-
-      if (error) {
-        // If DB update failed, raise error alert and DO NOT update local state
-        throw new Error(`Error BD Supabase: ${error.message}`);
-      }
-
+      await dbService.updateProgram(editingProgram);
       setPrograms((prev) =>
         prev.map((p) => (p.id === editingProgram.id ? editingProgram : p))
       );
@@ -772,17 +439,6 @@ export default function HomePage() {
 
       if (error) throw new Error(error.message);
 
-      if (profileForm.phone) {
-        await supabase
-          .from('profile_private')
-          .upsert({
-            user_id: currentUser.id,
-            email: currentUser.email,
-            phone: profileForm.phone,
-            updated_at: new Date().toISOString(),
-          });
-      }
-
       setCurrentUser((prev) =>
         prev
           ? {
@@ -802,62 +458,27 @@ export default function HomePage() {
           : null
       );
 
-      setMembers((prev) =>
-        prev.map((m) =>
-          m.id === currentUser.id
-            ? {
-                ...m,
-                name: profileForm.name,
-                avatarUrl: profileForm.avatarUrl,
-                bio: profileForm.bio,
-                instagram: profileForm.instagram,
-                tiktok: profileForm.tiktok,
-              }
-            : m
-        )
-      );
-
-      setToastMessage('✅ Perfil y foto guardados correctamente en la base de datos.');
-      await fetchMembersFromSupabase();
+      await fetchMembersFromDB();
+      setToastMessage('✅ Perfil y datos guardados correctamente en la base de datos.');
     } catch (err: any) {
       setErrorMessage(err.message || 'Error al guardar el perfil en la base de datos.');
     }
   };
 
-  // Handle Atomic Reservation with Database Check
+  // Handle Reservation with Database
   const handleReserve = async (sessionId: string) => {
-    if (!requireAuth()) return;
-    const target = sessions.find((s) => s.id === sessionId);
-    if (!target) return;
-
+    if (!requireAuth() || !currentUser?.id) return;
     try {
-      if (currentUser?.id) {
-        const { error } = await supabase.from('reservations').insert({
-          organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-          session_id: sessionId,
-          user_id: currentUser.id,
-          dance_role_used: 'unspecified',
-          status: target.confirmed < target.capacity ? 'confirmed' : 'waitlist',
-        });
-
-        if (error && !error.message.includes('foreign key constraint')) {
-          throw new Error(`Error BD Reserva: ${error.message}`);
-        }
-      }
-
-      if (target.confirmed < target.capacity) {
-        setSessions((prev) =>
-          prev.map((s) => (s.id === sessionId ? { ...s, confirmed: s.confirmed + 1 } : s))
-        );
-        setToastMessage(`✅ Reserva CONFIRMADA y registrada en BD para "${target.name}".`);
-      } else {
-        setSessions((prev) =>
-          prev.map((s) => (s.id === sessionId ? { ...s, waitlist: s.waitlist + 1 } : s))
-        );
-        setToastMessage(`⚠️ Aforo lleno. Añadido a LISTA DE ESPERA en BD.`);
-      }
+      const res = await dbService.reserveSession(
+        sessionId,
+        currentUser.id,
+        currentUser.danceRole || 'both'
+      );
+      const updated = await dbService.getSessions();
+      setSessions(updated);
+      setToastMessage(res.message);
     } catch (err: any) {
-      setErrorMessage(err.message);
+      setErrorMessage(err.message || 'Error al procesar reserva.');
     }
   };
 
@@ -868,40 +489,40 @@ export default function HomePage() {
     setErrorMessage('');
 
     try {
-      const { data, error } = await supabase
-        .from('programs')
-        .insert({
-          organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-          name: newProgramName,
-          discipline: newProgramDiscipline,
-          description: `Programa de nivel ${newProgramLevel}`,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        throw new Error(`Base de Datos Supabase: ${error.message}`);
-      }
-
-      const newProg: ProgramItem = {
-        id: data?.id || `p_${Date.now()}`,
+      const created = await dbService.createProgram({
         name: newProgramName,
         discipline: newProgramDiscipline,
         level: newProgramLevel,
-        description: 'Programa guardado en la base de datos.',
-        modulesCount: 2,
-        xpPoints: 100,
-        modules: [
-          { id: `m1_${Date.now()}`, title: 'Módulo 1: Pasos Básicos', videoUrl: 'https://youtube.com' },
-        ],
-      };
+      });
 
-      setPrograms([...programs, newProg]);
+      setPrograms((prev) => [created, ...prev]);
       setNewProgramName('');
       setIsModalOpen(false);
-      setToastMessage(`🎉 Programa "${newProgramName}" guardado en la base de datos.`);
+      setToastMessage(`🎉 Programa "${created.name}" guardado en la base de datos.`);
     } catch (err: any) {
       setErrorMessage(err.message || 'Error al guardar programa en base de datos.');
+    }
+  };
+
+  // Create Session in Database
+  const handleCreateSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requireAuth() || !newSessionName.trim()) return;
+    setErrorMessage('');
+
+    try {
+      const created = await dbService.createSession({
+        name: newSessionName,
+        time: newSessionTime,
+        capacity: Number(newSessionCapacity) || 20,
+      });
+
+      setSessions((prev) => [created, ...prev]);
+      setNewSessionName('');
+      setIsModalOpen(false);
+      setToastMessage(`📅 Clase "${created.name}" programada exitosamente en la BD.`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al programar clase.');
     }
   };
 
@@ -912,36 +533,18 @@ export default function HomePage() {
     setErrorMessage('');
 
     try {
-      const { data, error } = await supabase
-        .from('quests')
-        .insert({
-          organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-          created_by_teacher_id: currentUser?.id || '00000000-0000-0000-0000-000000000000',
-          title: newQuestTitle,
-          description: `Reto pedagógico de ${newProgramDiscipline}`,
-          points_reward: Number(newQuestPoints),
-        })
-        .select()
-        .single();
+      const created = await dbService.createQuest({
+        title: newQuestTitle,
+        points: Number(newQuestPoints) || 20,
+        teacherName: currentUser?.name || 'Profesor',
+        teacherId: currentUser?.id,
+        program: newProgramDiscipline,
+      });
 
-      if (error && !error.message.includes('foreign key constraint')) {
-        throw new Error(`Base de Datos Supabase: ${error.message}`);
-      }
-
-      setQuests([
-        ...quests,
-        {
-          id: data?.id || `q_${Date.now()}`,
-          title: newQuestTitle,
-          program: newProgramDiscipline,
-          points: Number(newQuestPoints),
-          status: 'submitted',
-          teacher: currentUser?.name || 'Profesor',
-        },
-      ]);
+      setQuests((prev) => [created, ...prev]);
       setNewQuestTitle('');
       setIsModalOpen(false);
-      setToastMessage(`🏆 Reto "${newQuestTitle}" guardado en la base de datos.`);
+      setToastMessage(`🏆 Reto "${created.title}" guardado en la base de datos.`);
     } catch (err: any) {
       setErrorMessage(err.message || 'Error al guardar reto en base de datos.');
     }
@@ -954,31 +557,13 @@ export default function HomePage() {
     setErrorMessage('');
 
     try {
-      const { data, error } = await supabase
-        .from('community_posts')
-        .insert({
-          organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-          user_id: currentUser?.id || '00000000-0000-0000-0000-000000000000',
-          content: newPostContent,
-        })
-        .select()
-        .single();
+      const created = await dbService.createCommunityPost(newPostContent, {
+        name: currentUser?.name || 'Usuario',
+        role: currentUser?.role || 'student',
+        id: currentUser?.id,
+      });
 
-      if (error && !error.message.includes('foreign key constraint')) {
-        throw new Error(`Base de Datos Supabase: ${error.message}`);
-      }
-
-      setCommunityPosts([
-        {
-          id: data?.id || `c_${Date.now()}`,
-          user: currentUser?.name || 'Usuario',
-          role: (currentUser?.role || 'STUDENT').toUpperCase(),
-          time: 'Justo ahora',
-          content: newPostContent,
-          likes: 0,
-        },
-        ...communityPosts,
-      ]);
+      setCommunityPosts((prev) => [created, ...prev]);
       setNewPostContent('');
       setIsModalOpen(false);
       setToastMessage(`💬 Publicación guardada en la base de datos.`);
@@ -987,50 +572,91 @@ export default function HomePage() {
     }
   };
 
-  // Invite Member into Database
-  const handleInviteMember = async (e: React.FormEvent) => {
+  // Create Social Event in Database
+  const handleCreateSocialEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requireAuth() || !newEventTitle.trim()) return;
+    setErrorMessage('');
+
+    try {
+      const created = await dbService.createSocialEvent({
+        title: newEventTitle,
+        date: newEventDate,
+        location: newEventLocation,
+        price: newEventPrice,
+        description: newEventDescription,
+        organizer: activeOrgName,
+        badge: 'Social SBK',
+      });
+
+      setSocialEvents((prev) => [created, ...prev]);
+      setNewEventTitle('');
+      setIsModalOpen(false);
+      setToastMessage(`🎉 Evento Social "${created.title}" guardado en la base de datos.`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al crear evento social.');
+    }
+  };
+
+  // Direct User Creation & Invitation in Database
+  const handleCreateOrInviteMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!requireAuth() || !newMemberEmail.trim()) return;
     setErrorMessage('');
 
     try {
-      const { error } = await supabase.from('organization_invitations').insert({
-        organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-        email: newMemberEmail,
-        role: newMemberRole as any,
-        token: `tok_${Date.now()}`,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      });
+      if (memberCreateMode === 'direct') {
+        if (!newMemberName.trim()) {
+          setErrorMessage('El nombre del usuario es obligatorio.');
+          return;
+        }
+        if (!newMemberPassword || newMemberPassword.length < 6) {
+          setErrorMessage('La contraseña debe tener mínimo 6 caracteres.');
+          return;
+        }
 
-      if (error && !error.message.includes('foreign key constraint')) {
-        throw new Error(`Base de Datos Supabase: ${error.message}`);
-      }
-
-      setMembers([
-        ...members,
-        {
-          id: `m_${Date.now()}`,
-          name: newMemberEmail.split('@')[0],
+        const created = await dbService.createMember({
+          name: newMemberName,
           email: newMemberEmail,
+          password: newMemberPassword,
           role: newMemberRole,
-          status: 'Invitado BD',
-          isPublic: true,
-          discipline: 'Por Asignar',
-          avatar: '👤',
-        },
-      ]);
-      setNewMemberEmail('');
-      setIsModalOpen(false);
-      setToastMessage(`📩 Invitación enviada y guardada en BD para ${newMemberEmail}.`);
-      fetchMembersFromSupabase();
+          discipline: newMemberDiscipline,
+          danceRole: newMemberDanceRole,
+          phone: newMemberPhone,
+          bio: newMemberBio,
+        });
+
+        setMembers((prev) => [created, ...prev.filter((m) => m.id !== created.id)]);
+        setIsModalOpen(false);
+        setToastMessage(`👑 Usuario "${created.name}" (${created.role.toUpperCase()}) registrado exitosamente en la BD.`);
+
+        setNewMemberName('');
+        setNewMemberEmail('');
+        setNewMemberPassword('');
+        setNewMemberPhone('');
+        setNewMemberBio('');
+      } else {
+        await dbService.createInvitation(newMemberEmail, newMemberRole);
+        await fetchMembersFromDB();
+        setIsModalOpen(false);
+        setToastMessage(`📩 Invitación enviada y guardada en BD para ${newMemberEmail}.`);
+        setNewMemberEmail('');
+      }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error al guardar invitación en la base de datos.');
+      setErrorMessage(err.message || 'Error al guardar en la base de datos.');
     }
   };
 
+  // Dynamic Metrics / KPI Computations
+  const activeStudentsCount = members.filter((m) => m.role === 'student' && m.status.includes('Activo')).length;
+  const staffMembersCount = members.filter((m) => m.role !== 'student').length;
+  const totalSessionsCapacity = sessions.reduce((acc, s) => acc + s.capacity, 0);
+  const totalSessionsConfirmed = sessions.reduce((acc, s) => acc + s.confirmed, 0);
+  const occupancyRate = totalSessionsCapacity > 0 ? Math.round((totalSessionsConfirmed / totalSessionsCapacity) * 100) : 0;
+
   return (
     <div className="min-h-screen bg-[#090D16] text-gray-100 flex flex-col font-sans">
-      {/* Top Navigation Bar with Horizontal Navigation Header */}
+      {/* Top Navigation Bar */}
       <Navbar
         isLoggedIn={!!currentUser}
         currentRole={currentUser?.role || 'guest'}
@@ -1048,7 +674,7 @@ export default function HomePage() {
       />
 
       <div className="flex-1 flex">
-        {/* Left Management Sidebar - ONLY rendered for logged in management users, NOT for guests */}
+        {/* Left Management Sidebar - ONLY rendered for logged in users */}
         {currentUser && currentUser.role !== 'guest' && (
           <Sidebar
             currentRole={currentUser.role}
@@ -1129,9 +755,8 @@ export default function HomePage() {
                     {/* Selector de Foto / Avatar */}
                     <div className="p-4 rounded-xl bg-purple-950/20 border border-purple-500/20 space-y-3">
                       <label className="block text-xs font-semibold text-purple-300">🖼️ Foto de Perfil / Avatar</label>
-                      
+
                       <div className="flex items-center gap-4">
-                        {/* Avatar Preview */}
                         <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-white text-2xl shadow-lg overflow-hidden shrink-0 border-2 border-purple-400/40">
                           {profileForm.avatarUrl ? (
                             <img src={profileForm.avatarUrl} alt="Foto de Perfil" className="w-full h-full object-cover" />
@@ -1141,66 +766,43 @@ export default function HomePage() {
                         </div>
 
                         <div className="flex-1 space-y-2">
-                          {/* File Upload Button */}
                           <div className="flex items-center gap-2">
                             <label className="cursor-pointer py-1.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow">
                               <span>📸 Subir Foto</span>
                               <input
                                 type="file"
                                 accept="image/*"
-                                className="hidden"
                                 onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (file) {
+                                    setToastMessage('⏳ Optimizando imagen...');
                                     const uploadedUrl = await uploadAvatarFile(file);
                                     if (uploadedUrl) {
                                       setProfileForm((prev) => ({ ...prev, avatarUrl: uploadedUrl }));
+                                      setToastMessage('✅ Foto lista. Pulsa "Guardar Perfil" para confirmar.');
                                     }
                                   }
                                 }}
+                                className="hidden"
                               />
                             </label>
-
                             {profileForm.avatarUrl && (
                               <button
                                 type="button"
-                                onClick={() => setProfileForm({ ...profileForm, avatarUrl: '' })}
-                                className="py-1.5 px-3 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-semibold transition border border-rose-500/30"
+                                onClick={() => setProfileForm((prev) => ({ ...prev, avatarUrl: '' }))}
+                                className="text-xs text-rose-400 hover:text-rose-300 font-semibold px-2 py-1"
                               >
-                                🗑️ Quitar Foto
+                                Quitar
                               </button>
                             )}
                           </div>
-
-                          {/* URL Input */}
                           <input
                             type="url"
                             value={profileForm.avatarUrl}
                             onChange={(e) => setProfileForm({ ...profileForm, avatarUrl: e.target.value })}
-                            placeholder="o pega el enlace de tu foto (https://...)"
-                            className="form-input text-xs py-1.5"
+                            placeholder="O pega URL directa de tu foto..."
+                            className="form-input text-xs"
                           />
-                        </div>
-                      </div>
-
-                      {/* Emoji Picker */}
-                      <div>
-                        <p className="text-[11px] text-gray-400 font-medium mb-1.5">O elige un icono de baile por defecto:</p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {['💃', '🕺', '✨', '🎧', '👑', '🏆', '🔥'].map((emoji) => (
-                            <button
-                              key={emoji}
-                              type="button"
-                              onClick={() => setProfileForm({ ...profileForm, avatar: emoji, avatarUrl: '' })}
-                              className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center border transition ${
-                                profileForm.avatar === emoji && !profileForm.avatarUrl
-                                  ? 'bg-purple-600/40 border-purple-400 scale-105 shadow'
-                                  : 'bg-gray-900 border-gray-800 hover:bg-gray-800'
-                              }`}
-                            >
-                              {emoji}
-                            </button>
-                          ))}
                         </div>
                       </div>
                     </div>
@@ -1212,168 +814,140 @@ export default function HomePage() {
                           type="text"
                           value={profileForm.name}
                           onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                          className="form-input text-xs"
+                          className="form-input"
                           required
                         />
                       </div>
-
                       <div>
-                        <label className="block text-xs font-semibold text-gray-300 mb-1">📱 Teléfono / Móvil</label>
+                        <label className="block text-xs font-semibold text-gray-300 mb-1">Teléfono Móvil (Privado)</label>
                         <input
                           type="tel"
                           value={profileForm.phone}
                           onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
                           placeholder="+34 600 000 000"
-                          className="form-input text-xs"
+                          className="form-input"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-semibold text-gray-300 mb-1">🎂 Cumpleaños / Fecha Nacimiento</label>
+                        <label className="block text-xs font-semibold text-gray-300 mb-1">Rol de Baile Preferido</label>
+                        <select
+                          value={profileForm.danceRole}
+                          onChange={(e) => setProfileForm({ ...profileForm, danceRole: e.target.value })}
+                          className="form-input"
+                        >
+                          <option value="both">Ambos (Leader & Follower)</option>
+                          <option value="leader">Líder (Leader)</option>
+                          <option value="follower">Seguidor/a (Follower)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-300 mb-1">Fecha de Nacimiento</label>
                         <input
                           type="date"
                           value={profileForm.birthdate}
                           onChange={(e) => setProfileForm({ ...profileForm, birthdate: e.target.value })}
-                          className="form-input text-xs"
+                          className="form-input"
                         />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-300 mb-1">Rol de Baile Principal</label>
-                        <select
-                          value={profileForm.danceRole}
-                          onChange={(e) => setProfileForm({ ...profileForm, danceRole: e.target.value })}
-                          className="form-input text-xs"
-                        >
-                          <option value="leader">🕺 Leader (Guía)</option>
-                          <option value="follower">💃 Follower (Sigue)</option>
-                          <option value="both">✨ Ambos (Leader & Follower)</option>
-                        </select>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-gray-300 mb-1">Sobre Mí / Biografía</label>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">Biografía Breve</label>
                       <textarea
-                        rows={2}
                         value={profileForm.bio}
                         onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
-                        placeholder="Apasionadx del baile, bailando Bachata y Salsa desde..."
-                        className="form-input text-xs"
-                      />
+                        placeholder="Cuéntanos cuánto llevas bailando..."
+                        className="form-input h-20 resize-none text-xs"
+                      ></textarea>
                     </div>
 
                     {/* Redes Sociales */}
-                    <div className="pt-3 border-t border-gray-800 space-y-3">
-                      <h3 className="font-heading font-bold text-xs text-purple-300 uppercase tracking-wider">
-                        🌐 Redes Sociales & Presencia Digital
-                      </h3>
-
+                    <div className="pt-2 border-t border-gray-800">
+                      <label className="block text-xs font-bold text-white mb-2 uppercase tracking-wide">
+                        Redes Sociales (Visibles para la Comunidad)
+                      </label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-[11px] font-medium text-gray-400 mb-1">Instagram (@usuario)</label>
+                          <label className="block text-xs text-gray-400 mb-1">Instagram (@usuario)</label>
                           <input
                             type="text"
                             value={profileForm.instagram}
                             onChange={(e) => setProfileForm({ ...profileForm, instagram: e.target.value })}
-                            placeholder="@miusuario"
+                            placeholder="@tu_usuario"
                             className="form-input text-xs"
                           />
                         </div>
-
                         <div>
-                          <label className="block text-[11px] font-medium text-gray-400 mb-1">TikTok (@usuario)</label>
+                          <label className="block text-xs text-gray-400 mb-1">TikTok (@usuario)</label>
                           <input
                             type="text"
                             value={profileForm.tiktok}
                             onChange={(e) => setProfileForm({ ...profileForm, tiktok: e.target.value })}
-                            placeholder="@miusuario"
-                            className="form-input text-xs"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-400 mb-1">Facebook (Perfil / Página)</label>
-                          <input
-                            type="text"
-                            value={profileForm.facebook}
-                            onChange={(e) => setProfileForm({ ...profileForm, facebook: e.target.value })}
-                            placeholder="facebook.com/miusuario"
-                            className="form-input text-xs"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-medium text-gray-400 mb-1">YouTube (Canal)</label>
-                          <input
-                            type="text"
-                            value={profileForm.youtube}
-                            onChange={(e) => setProfileForm({ ...profileForm, youtube: e.target.value })}
-                            placeholder="youtube.com/@micanal"
+                            placeholder="@tu_usuario"
                             className="form-input text-xs"
                           />
                         </div>
                       </div>
                     </div>
 
-                    {/* Switch de Privacidad de Rankings */}
-                    <div className="pt-4 border-t border-gray-800 space-y-2">
-                      <h3 className="font-heading font-bold text-xs text-purple-300 uppercase tracking-wider">
-                        🛡️ Privacidad & Visibilidad en Comunidad
-                      </h3>
-                      <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-500/20 flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-semibold text-white text-xs">Aparecer en Rankings Públicos e Integrantes</p>
-                          <p className="text-[11px] text-gray-400 leading-snug">
-                            Si desactivas esta casilla, mantendremos tu perfil y tus rachas de asistencia de forma 100% privada.
-                          </p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={profileForm.showInRankings}
-                          onChange={(e) => setProfileForm({ ...profileForm, showInRankings: e.target.checked })}
-                          className="w-5 h-5 accent-purple-600 rounded cursor-pointer shrink-0"
-                        />
+                    {/* Privacidad & Visibilidad en Rankings */}
+                    <div className="p-4 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-sm text-white">Mostrarme en el Directorio Público</h4>
+                        <p className="text-xs text-gray-400">Si se desactiva, tu perfil no saldrá en la pestaña "Integrantes".</p>
                       </div>
+                      <input
+                        type="checkbox"
+                        checked={profileForm.showInRankings}
+                        onChange={(e) => setProfileForm({ ...profileForm, showInRankings: e.target.checked })}
+                        className="w-5 h-5 accent-purple-600 rounded cursor-pointer"
+                      />
                     </div>
 
-                    <button type="submit" className="btn-primary text-xs py-2.5 px-5">
-                      💾 Guardar Cambios en Perfil
-                    </button>
+                    <div className="flex justify-end pt-2">
+                      <button type="submit" className="btn-primary text-xs">
+                        💾 Guardar Perfil en la Base de Datos
+                      </button>
+                    </div>
                   </form>
                 </div>
 
-                {/* Tarjeta de Rachas & Pasaporte */}
-                <div className="space-y-5">
-                  <div className="glass-panel p-6 space-y-4 border-purple-500/30 bg-gradient-to-b from-purple-950/40 to-slate-950">
-                    <span className="badge badge-purple text-xs">🔥 Racha en Sociales SBK</span>
-                    <h3 className="font-heading font-bold text-white text-lg">Tu Pasaporte de Baile</h3>
-                    <p className="text-xs text-gray-300">
-                      Asiste a los sociales organizados por la comunidad para desbloquear pases gratis.
-                    </p>
-
-                    <div className="p-4 rounded-2xl bg-slate-900 border border-purple-500/20 text-center space-y-2">
-                      <div className="text-3xl font-extrabold text-amber-400">3 / 4</div>
-                      <p className="text-xs text-purple-200 font-semibold">Asistencias en este Mes</p>
-                      <p className="text-[11px] text-gray-400">
-                        ¡Solo te falta <strong className="text-white">1 asistencia más</strong> para conseguir tu 5ª entrada GRATIS!
-                      </p>
+                {/* Tarjeta de Resumen */}
+                <div className="glass-panel p-6 flex flex-col justify-between space-y-6">
+                  <div className="text-center space-y-3">
+                    <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-purple-600 via-pink-500 to-indigo-600 flex items-center justify-center font-bold text-white text-4xl shadow-xl mx-auto overflow-hidden border-2 border-purple-400/40">
+                      {profileForm.avatarUrl ? (
+                        <img src={profileForm.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{profileForm.avatar}</span>
+                      )}
                     </div>
+                    <div>
+                      <h3 className="font-heading font-extrabold text-xl text-white">{profileForm.name || 'Tu Nombre'}</h3>
+                      <p className="text-xs text-gray-400">{currentUser?.email}</p>
+                    </div>
+                    <span className="badge badge-purple uppercase text-xs font-bold tracking-wider">
+                      {currentUser?.role}
+                    </span>
+                  </div>
 
-                    <div className="pt-2">
-                      <p className="text-[11px] text-gray-400 font-semibold mb-2">Premios Desbloqueados:</p>
-                      <div className="space-y-1.5 text-xs">
-                        <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center justify-between">
-                          <span>🎟️ Descuento 10% en Social</span>
-                          <span className="font-bold">Usado</span>
-                        </div>
-                        <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-300 flex items-center justify-between">
-                          <span>🏆 Insignia "Bailarín Frecuente"</span>
-                          <span className="font-bold">Activo</span>
-                        </div>
-                      </div>
+                  <div className="space-y-3 pt-4 border-t border-gray-800 text-xs">
+                    <div className="flex justify-between text-gray-400">
+                      <span>Rol de Baile:</span>
+                      <strong className="text-purple-300">{profileForm.danceRole.toUpperCase()}</strong>
+                    </div>
+                    <div className="flex justify-between text-gray-400">
+                      <span>Escuela Activa:</span>
+                      <strong className="text-emerald-400">{activeOrgName}</strong>
+                    </div>
+                    <div className="flex justify-between text-gray-400">
+                      <span>Visibilidad:</span>
+                      <strong className={profileForm.showInRankings ? 'text-emerald-400' : 'text-gray-500'}>
+                        {profileForm.showInRankings ? 'Visible en Directorio' : 'Oculto'}
+                      </strong>
                     </div>
                   </div>
                 </div>
@@ -1389,14 +963,14 @@ export default function HomePage() {
                   👑 Control Global del SaaS (SuperAdmin)
                 </h1>
                 <p className="text-gray-400 text-sm mt-1">
-                  Administración de organizaciones, asignación de privilegios, planes de suscripción y monetización.
+                  Administración centralizada de escuelas, roles y métricas globales de la plataforma.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                <StatCard title="Organizaciones Activas" value="12" subtitle="Escuelas en 4 ciudades" icon="🏛️" trend="+2 este mes" trendUp={true} />
-                <StatCard title="Comisiones Acumuladas" value="3.420 €" subtitle="Split 30% en ventas" icon="💰" trend="+15%" trendUp={true} />
-                <StatCard title="Sociales Destacados" value="8" subtitle="Boosts prioritarios activados" icon="⭐" trend="100% cobrado" trendUp={true} />
+                <StatCard title="Organizaciones Activas" value="1" subtitle={activeOrgName} icon="🏛️" trend="+1 activa" trendUp={true} />
+                <StatCard title="Usuarios Registrados" value={members.length} subtitle="En base de datos" icon="👥" trend={`${activeStudentsCount} alumnos`} trendUp={true} />
+                <StatCard title="Sociales Activos" value={socialEvents.length} subtitle="Fiestas SBK programadas" icon="⭐" trend="En calendario" trendUp={true} />
               </div>
 
               <div className="glass-panel p-6 space-y-4">
@@ -1407,14 +981,14 @@ export default function HomePage() {
                       <h3 className="font-bold text-white text-base">Plan Free</h3>
                       <span className="badge badge-purple">Gratuito</span>
                     </div>
-                    <p className="text-xs text-gray-400">Hasta 4 publicaciones de eventos al mes. Funcionalidad estándar.</p>
+                    <p className="text-xs text-gray-400">Hasta 4 publicaciones de eventos al mes. Gestión estándar de alumnos.</p>
                   </div>
                   <div className="p-4 rounded-xl bg-purple-950/40 border border-purple-500/40 space-y-2">
                     <div className="flex items-center justify-between">
                       <h3 className="font-bold text-white text-base">Plan Pro (Escuelas Ilimitadas)</h3>
                       <span className="badge badge-cyan">49 € / mes</span>
                     </div>
-                    <p className="text-xs text-gray-300">Publicaciones ilimitadas, Quests avanzadas de marca y soporte prioritario.</p>
+                    <p className="text-xs text-gray-300">Publicaciones ilimitadas, Quests pedagógicas avanzadas y soporte prioritario.</p>
                   </div>
                 </div>
               </div>
@@ -1428,177 +1002,111 @@ export default function HomePage() {
                 <div className="max-w-3xl space-y-4">
                   <span className="badge badge-purple px-3 py-1 text-xs">✨ Bienvenidx a Plaza Dance</span>
                   <h1 className="font-heading font-black text-3xl sm:text-4xl text-white leading-tight">
-                    La Plataforma Inteligente para <span className="gradient-text-violet">Escuelas y Comunidades de Baile</span>
+                    Plataforma Integral de Gestión y Comunidad de Baile SBK
                   </h1>
                   <p className="text-gray-300 text-sm leading-relaxed">
-                    Plaza Dance une a directores, profesores, alumnos y amantes del baile SBK (Salsa, Bachata, Kizomba) en un ecosistema digital dinámico con gestión de aforos en tiempo real, temarios modulares y muro comunitario.
+                    Plaza Dance une a directores, profesores, alumnos y amantes del baile SBK (Salsa, Bachata, Kizomba)
+                    en un ecosistema transparente con gestión de aforos en tiempo real, temarios estructurados con vídeo,
+                    retos interactivos y eventos sociales.
                   </p>
-                  <div className="pt-2 flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-3 pt-2">
                     {!currentUser ? (
-                      <button onClick={() => setIsAuthModalOpen(true)} className="btn-primary text-xs py-2.5 px-5">
-                        🚀 Unirse a la Comunidad / Crear Cuenta
+                      <button onClick={() => setIsAuthModalOpen(true)} className="btn-primary text-xs py-2 px-4">
+                        Crear Cuenta / Iniciar Sesión
                       </button>
                     ) : (
-                      <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
-                        ✅ Sesión activa como <strong>{currentUser.name}</strong> ({currentUser.role.toUpperCase()})
-                      </span>
+                      <button onClick={() => setActiveTab('programs')} className="btn-primary text-xs py-2 px-4">
+                        Explorar Clases
+                      </button>
                     )}
-                    <button onClick={() => setActiveTab('programs')} className="btn-secondary text-xs py-2.5 px-4">
-                      💃 Explorar Clases y Temarios
+                    <button onClick={() => setActiveTab('members_public')} className="btn-secondary text-xs py-2 px-4">
+                      Ver Integrantes de la Escuela
                     </button>
                   </div>
-                </div>
-              </div>
-
-              {/* Feature Cards Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                <div className="glass-panel p-6 space-y-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-300 flex items-center justify-center text-xl font-bold">
-                    💃
-                  </div>
-                  <h3 className="font-heading font-bold text-white text-lg">Temarios & Estructura Modular</h3>
-                  <p className="text-xs text-gray-400 leading-relaxed">
-                    Accede a programas de Salsa Cubana, Bachata Sensual, Kizomba y Lady Style organizados por niveles y módulos de vídeo de alta definición.
-                  </p>
-                </div>
-
-                <div className="glass-panel p-6 space-y-3">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-600/20 border border-cyan-500/30 text-cyan-300 flex items-center justify-center text-xl font-bold">
-                    📅
-                  </div>
-                  <h3 className="font-heading font-bold text-white text-lg">Reservas & Control de Aforos</h3>
-                  <p className="text-xs text-gray-400 leading-relaxed">
-                    Sistema atómico de reserva por parejas (Leaders & Followers) y lista de espera inteligente para garantizar el equilibrio perfecto en cada clase.
-                  </p>
-                </div>
-
-                <div className="glass-panel p-6 space-y-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-600/20 border border-amber-500/30 text-amber-300 flex items-center justify-center text-xl font-bold">
-                    🎉
-                  </div>
-                  <h3 className="font-heading font-bold text-white text-lg">Comunidad & Eventos Sociales</h3>
-                  <p className="text-xs text-gray-400 leading-relaxed">
-                    Conecta con otros bailadores, comparte impresiones en el muro social, consulta la agenda de fiestas SBK y visualiza los perfiles de la escuela.
-                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ─── 1. TAB: PROGRAMAS & CLASES ─── */}
+          {/* ─── 1. TAB: PROGRAMAS Y CLASES ─── */}
           {activeTab === 'programs' && (
             <div className="space-y-8 animate-fade-in">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Programas & Temarios</h1>
-                  <p className="text-gray-400 text-sm mt-1">Disciplinas de baile, árbol de niveles y módulos técnicos guardados en Supabase.</p>
+                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Programas Académicos & Temarios</h1>
+                  <p className="text-gray-400 text-sm mt-1">Estructura pedagógica por niveles, vídeos y módulos guardados en Supabase.</p>
                 </div>
-                {currentUser && (currentUser.role === 'owner' || currentUser.role === 'admin' || currentUser.role === 'teacher') && (
+                {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'superadmin') && (
                   <button
                     onClick={() => {
-                      if (requireAuth()) {
-                        setModalType('program');
-                        setIsModalOpen(true);
-                      }
+                      setModalType('program');
+                      setIsModalOpen(true);
                     }}
                     className="btn-primary text-xs"
                   >
-                    + Nuevo Programa
+                    + Crear Nuevo Programa
                   </button>
                 )}
               </div>
 
-              {/* Discipline & Level Filter Bar */}
-              <div className="glass-panel p-4 flex flex-wrap items-center justify-between gap-4 bg-slate-950/80">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Filtrar Disciplina:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {['all', 'Salsa', 'Bachata', 'Kizomba', 'Lady Style'].map((disc) => (
-                      <button
-                        key={disc}
-                        onClick={() => setFilterDiscipline(disc)}
-                        className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
-                          filterDiscipline === disc
-                            ? 'bg-purple-600 text-white shadow'
-                            : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                        }`}
-                      >
-                        {disc === 'all' ? 'Todas' : disc}
-                      </button>
-                    ))}
-                  </div>
+              {programs.length === 0 ? (
+                <div className="glass-panel p-10 text-center space-y-3">
+                  <span className="text-4xl">💃</span>
+                  <h3 className="font-bold text-white text-lg">No hay programas registrados todavía</h3>
+                  <p className="text-xs text-gray-400 max-w-md mx-auto">
+                    Los programas y temarios creados en la base de datos aparecerán aquí con sus módulos y vídeos.
+                  </p>
+                  {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'superadmin') && (
+                    <button
+                      onClick={() => {
+                        setModalType('program');
+                        setIsModalOpen(true);
+                      }}
+                      className="btn-primary text-xs mt-2"
+                    >
+                      + Crear Primer Programa
+                    </button>
+                  )}
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Nivel:</span>
-                  <select
-                    value={filterLevel}
-                    onChange={(e) => setFilterLevel(e.target.value)}
-                    className="form-input text-xs py-1 px-2.5 w-36"
-                  >
-                    <option value="all">Todos los Niveles</option>
-                    <option value="Iniciación">Iniciación</option>
-                    <option value="Intermedio">Intermedio</option>
-                    <option value="Avanzado">Avanzado</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Program Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {programs
-                  .filter((p) => {
-                    const matchDisc = filterDiscipline === 'all' || p.discipline.toLowerCase() === filterDiscipline.toLowerCase();
-                    const matchLvl = filterLevel === 'all' || p.level.toLowerCase() === filterLevel.toLowerCase();
-                    return matchDisc && matchLvl;
-                  })
-                  .map((prog) => (
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {programs.map((prog) => (
                     <div key={prog.id} className="glass-panel p-6 flex flex-col justify-between hover:border-purple-500/40 transition">
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <span className="badge badge-cyan">{prog.discipline}</span>
-                          <span className="badge badge-purple">{prog.level}</span>
+                          <span className="badge badge-purple">{prog.discipline}</span>
+                          <span className="badge badge-cyan">{prog.level}</span>
                         </div>
-                        <h3 className="font-heading font-bold text-xl text-white mb-2">{prog.name}</h3>
-                        <p className="text-xs text-gray-400 mb-4">{prog.description}</p>
-
-                        {/* Video Modules List */}
-                        <div className="space-y-2 mb-4 bg-gray-950/70 p-3 rounded-xl border border-gray-800">
-                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Módulos del Temario ({prog.modules.length}):</p>
-                          {prog.modules.map((m) => (
-                            <div key={m.id} className="flex items-center justify-between text-xs text-gray-300">
-                              <span className="truncate pr-2">🎥 {m.title}</span>
-                              <a href={m.videoUrl} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline shrink-0 text-[11px]">Ver Vídeo ↗</a>
+                        <h3 className="font-heading font-bold text-lg text-white mb-2">{prog.name}</h3>
+                        <p className="text-xs text-gray-400 mb-4 line-clamp-2 leading-relaxed">{prog.description}</p>
+                        <div className="space-y-1.5 pt-3 border-t border-gray-800">
+                          <span className="text-[11px] font-semibold text-purple-300 block">
+                            📚 {prog.modules.length} Módulos Técnicos:
+                          </span>
+                          {prog.modules.slice(0, 3).map((m) => (
+                            <div key={m.id} className="text-[11px] text-gray-300 flex items-center justify-between">
+                              <span className="truncate">{m.title}</span>
+                              <span className="text-purple-400 text-[10px]">▶ Vídeo</span>
                             </div>
                           ))}
                         </div>
                       </div>
 
-                      <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
-                        <span className="text-xs text-amber-400 font-semibold">🏆 Recompensa: +{prog.xpPoints} XP</span>
-                        {currentUser && (currentUser.role === 'owner' || currentUser.role === 'admin' || currentUser.role === 'teacher') ? (
+                      <div className="pt-4 mt-4 border-t border-gray-800 flex items-center justify-between">
+                        <span className="text-xs text-amber-400 font-semibold">+{prog.xpPoints} Pts XP</span>
+                        {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'superadmin') && (
                           <button
                             onClick={() => handleOpenProgramEditor(prog)}
-                            className="btn-primary text-xs py-1.5 px-3"
+                            className="btn-secondary text-xs py-1 px-3"
                           >
-                            ✏️ Editar Temario & Vídeos
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              if (requireAuth()) {
-                                setToastMessage(`Iniciada inscripción en ${prog.name}`);
-                              }
-                            }}
-                            className="btn-secondary text-xs py-1.5 px-3"
-                          >
-                            Inscribirse a la Clase
+                            ✏️ Editar Temario
                           </button>
                         )}
                       </div>
                     </div>
                   ))}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1607,14 +1115,14 @@ export default function HomePage() {
             <div className="space-y-8 animate-fade-in">
               <div>
                 <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Panel de Dirección</h1>
-                <p className="text-gray-400 text-sm mt-1">Gestión académica, aforos en tiempo real y métricas de la escuela.</p>
+                <p className="text-gray-400 text-sm mt-1">Métricas reales calculadas directamente de la base de datos.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-                <StatCard title="Alumnos Activos" value="248" subtitle="En 14 grupos semanales" icon="👥" trend="+12%" trendUp={true} />
-                <StatCard title="Ocupación de Aforos" value="89%" subtitle="182 plazas reservadas de 204" icon="📊" trend="+5%" trendUp={true} />
-                <StatCard title="Recaudación Mes" value="14.850 €" subtitle="Cobros totales + 'A cuenta'" icon="💳" trend="+18%" trendUp={true} />
-                <StatCard title="Pendiente de Cobro" value="620 €" subtitle="8 alumnos con saldo parcial" icon="⚠️" trend="-4%" trendUp={false} />
+                <StatCard title="Alumnos Activos" value={activeStudentsCount} subtitle="En base de datos" icon="👥" trend="Registrados" trendUp={true} />
+                <StatCard title="Ocupación de Aforos" value={`${occupancyRate}%`} subtitle={`${totalSessionsConfirmed} de ${totalSessionsCapacity} plazas`} icon="📊" trend="Tiempo Real" trendUp={true} />
+                <StatCard title="Equipo & Profesores" value={staffMembersCount} subtitle="Gestión y docentes" icon="🕺" trend="Personal" trendUp={true} />
+                <StatCard title="Sesiones Programadas" value={sessions.length} subtitle="En calendario activo" icon="📅" trend="Semanales" trendUp={true} />
               </div>
             </div>
           )}
@@ -1622,38 +1130,73 @@ export default function HomePage() {
           {/* ─── 3. TAB: RESERVAS & AFOROS ─── */}
           {activeTab === 'reservations' && (
             <div className="space-y-8 animate-fade-in">
-              <div>
-                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Gestión de Reservas & Control de Aforos</h1>
-                <p className="text-gray-400 text-sm mt-1">Control de asistencia por pareja y lista de espera atómica en Supabase.</p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Gestión de Reservas & Control de Aforos</h1>
+                  <p className="text-gray-400 text-sm mt-1">Control de asistencia por plaza y lista de espera atómica en Supabase.</p>
+                </div>
+                {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'reception' || currentUser.role === 'superadmin') && (
+                  <button
+                    onClick={() => {
+                      setModalType('session');
+                      setIsModalOpen(true);
+                    }}
+                    className="btn-primary text-xs"
+                  >
+                    + Programar Nueva Clase
+                  </button>
+                )}
               </div>
 
-              <div className="glass-panel p-6 space-y-4">
-                <h2 className="font-heading font-bold text-lg text-white">Listado de Sesiones Activas</h2>
-                <div className="space-y-3">
-                  {sessions.map((sess) => (
-                    <div key={sess.id} className="p-4 rounded-xl bg-gray-900 border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="badge badge-purple">{sess.time}</span>
-                          <span className="text-xs text-gray-400">Capacidad: {sess.capacity} plazas</span>
-                        </div>
-                        <h3 className="font-bold text-white text-base">{sess.name}</h3>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-gray-300">
-                          Confirmados: <strong className="text-emerald-400">{sess.confirmed}</strong>
-                        </span>
-                        <button
-                          onClick={() => handleReserve(sess.id)}
-                          className="btn-primary text-xs"
-                        >
-                          Reservar Plaza
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+              {sessions.length === 0 ? (
+                <div className="glass-panel p-10 text-center space-y-3">
+                  <span className="text-4xl">📅</span>
+                  <h3 className="font-bold text-white text-lg">No hay clases ni sesiones programadas</h3>
+                  <p className="text-xs text-gray-400 max-w-md mx-auto">
+                    Programa una clase para abrir reservas de aforo y listas de espera.
+                  </p>
+                  {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'reception' || currentUser.role === 'superadmin') && (
+                    <button
+                      onClick={() => {
+                        setModalType('session');
+                        setIsModalOpen(true);
+                      }}
+                      className="btn-primary text-xs mt-2"
+                    >
+                      + Programar Primera Clase
+                    </button>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="glass-panel p-6 space-y-4">
+                  <h2 className="font-heading font-bold text-lg text-white">Listado de Sesiones Activas</h2>
+                  <div className="space-y-3">
+                    {sessions.map((sess) => (
+                      <div key={sess.id} className="p-4 rounded-xl bg-gray-900 border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="badge badge-purple">{sess.time}</span>
+                            <span className="text-xs text-gray-400">Aforo: {sess.capacity} plazas</span>
+                            {sess.waitlist > 0 && <span className="badge badge-amber">Lista de espera: {sess.waitlist}</span>}
+                          </div>
+                          <h3 className="font-bold text-white text-base">{sess.name}</h3>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-gray-300">
+                            Confirmados: <strong className="text-emerald-400">{sess.confirmed}</strong>
+                          </span>
+                          <button
+                            onClick={() => handleReserve(sess.id)}
+                            className="btn-primary text-xs"
+                          >
+                            Reservar Plaza
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1665,15 +1208,18 @@ export default function HomePage() {
                 <p className="text-gray-400 text-sm mt-1">Pase de lista y registro de asistencia en la base de datos.</p>
               </div>
 
-              <div className="glass-panel p-6">
-                <h2 className="font-heading font-bold text-lg text-white mb-2">Escáner de Código QR</h2>
+              <div className="glass-panel p-6 space-y-4">
+                <h2 className="font-heading font-bold text-lg text-white">Escáner de Código QR de Alumnos</h2>
+                <p className="text-xs text-gray-400">
+                  Permite a recepción o al profesor validar la entrada del alumno y guardar el check-in en la BD.
+                </p>
                 <button
                   onClick={() => {
                     if (requireAuth()) {
                       setToastMessage('✅ Check-In COMPLETADO y guardado en la base de datos.');
                     }
                   }}
-                  className="btn-primary text-xs mt-3"
+                  className="btn-primary text-xs"
                 >
                   Simular Escaneo de QR
                 </button>
@@ -1686,7 +1232,7 @@ export default function HomePage() {
             <div className="space-y-8 animate-fade-in">
               <div>
                 <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Pagos & Finanzas</h1>
-                <p className="text-gray-400 text-sm mt-1">Control de pagos "a cuenta" y registros financieros.</p>
+                <p className="text-gray-400 text-sm mt-1">Control de bonos, suscripciones y estados de cuenta.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -1694,6 +1240,7 @@ export default function HomePage() {
                   <span className="badge badge-emerald">Bono 10 Clases</span>
                   <h3 className="font-bold text-xl text-white">Salsa & Bachata Pack</h3>
                   <p className="text-3xl font-extrabold text-white">90 €</p>
+                  <p className="text-xs text-gray-400">Válido para 10 sesiones en la escuela.</p>
                 </div>
               </div>
             </div>
@@ -1705,15 +1252,13 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Retos & Desafíos Comunitarios</h1>
-                  <p className="text-gray-400 text-sm mt-1">Publicación y revisión de retos de baile sincronizados con la BD.</p>
+                  <p className="text-gray-400 text-sm mt-1">Publicación y revisión pedagógica sincronizadas con la BD.</p>
                 </div>
                 {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'superadmin') && (
                   <button
                     onClick={() => {
-                      if (requireAuth()) {
-                        setModalType('quest');
-                        setIsModalOpen(true);
-                      }
+                      setModalType('quest');
+                      setIsModalOpen(true);
                     }}
                     className="btn-primary text-xs"
                   >
@@ -1722,47 +1267,67 @@ export default function HomePage() {
                 )}
               </div>
 
-              <div className="glass-panel p-6">
-                <div className="space-y-4">
-                  {quests.map((q) => (
-                    <div key={q.id} className="p-4 rounded-xl bg-gray-900/80 border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="badge badge-cyan">{q.program}</span>
-                          <span className="text-xs text-amber-400 font-semibold">+{q.points} Puntos</span>
+              {quests.length === 0 ? (
+                <div className="glass-panel p-10 text-center space-y-3">
+                  <span className="text-4xl">🏆</span>
+                  <h3 className="font-bold text-white text-lg">No hay retos pedagógicos activos</h3>
+                  <p className="text-xs text-gray-400 max-w-md mx-auto">
+                    Los profesores pueden proponer retos de baile para que los alumnos ganen puntos XP.
+                  </p>
+                  {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'superadmin') && (
+                    <button
+                      onClick={() => {
+                        setModalType('quest');
+                        setIsModalOpen(true);
+                      }}
+                      className="btn-primary text-xs mt-2"
+                    >
+                      + Crear Primer Reto
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="glass-panel p-6">
+                  <div className="space-y-4">
+                    {quests.map((q) => (
+                      <div key={q.id} className="p-4 rounded-xl bg-gray-900/80 border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="badge badge-cyan">{q.program}</span>
+                            <span className="text-xs text-amber-400 font-semibold">+{q.points} Puntos</span>
+                          </div>
+                          <h3 className="font-semibold text-white text-base">{q.title}</h3>
+                          <p className="text-xs text-gray-400">Profesor: {q.teacher}</p>
                         </div>
-                        <h3 className="font-semibold text-white text-base">{q.title}</h3>
-                        <p className="text-xs text-gray-400">Profesor: {q.teacher}</p>
-                      </div>
 
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`badge ${
-                            q.status === 'approved' ? 'badge-emerald' : q.status === 'submitted' ? 'badge-amber' : 'badge-purple'
-                          }`}
-                        >
-                          {q.status === 'approved' ? 'Aprobado' : q.status === 'submitted' ? 'Pendiente Revisión' : 'En Progreso'}
-                        </span>
-                        {q.status === 'submitted' && (
-                          <button
-                            onClick={() => {
-                              if (requireAuth()) {
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`badge ${
+                              q.status === 'approved' ? 'badge-emerald' : q.status === 'submitted' ? 'badge-amber' : 'badge-purple'
+                            }`}
+                          >
+                            {q.status === 'approved' ? 'Aprobado' : q.status === 'submitted' ? 'Pendiente Revisión' : 'En Progreso'}
+                          </span>
+                          {q.status === 'submitted' && currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'superadmin') && (
+                            <button
+                              onClick={async () => {
+                                await dbService.approveQuest(q.id);
                                 setQuests((prev) =>
                                   prev.map((item) => (item.id === q.id ? { ...item, status: 'approved' } : item))
                                 );
                                 setToastMessage(`🎉 Reto "${q.title}" APROBADO en la base de datos.`);
-                              }
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition"
-                          >
-                            Aprobar (+{q.points} Pts)
-                          </button>
-                        )}
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition"
+                            >
+                              Aprobar (+{q.points} Pts)
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -1787,27 +1352,48 @@ export default function HomePage() {
                 </button>
               </div>
 
-              <div className="glass-panel p-6 space-y-4">
-                {communityPosts.map((post) => (
-                  <div key={post.id} className="p-4 rounded-xl bg-gray-900 border border-gray-800 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs">
-                          {post.user.charAt(0)}
+              {communityPosts.length === 0 ? (
+                <div className="glass-panel p-10 text-center space-y-3">
+                  <span className="text-4xl">💬</span>
+                  <h3 className="font-bold text-white text-lg">El muro de la comunidad está vacío</h3>
+                  <p className="text-xs text-gray-400 max-w-md mx-auto">
+                    ¡Sé el primero en compartir un mensaje, felicitar a tus compañeros o avisar sobre eventos!
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (requireAuth()) {
+                        setModalType('post');
+                        setIsModalOpen(true);
+                      }
+                    }}
+                    className="btn-primary text-xs mt-2"
+                  >
+                    + Crear Primera Publicación
+                  </button>
+                </div>
+              ) : (
+                <div className="glass-panel p-6 space-y-4">
+                  {communityPosts.map((post) => (
+                    <div key={post.id} className="p-4 rounded-xl bg-gray-900 border border-gray-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs">
+                            {post.user.charAt(0)}
+                          </div>
+                          <span className="font-semibold text-white text-sm">{post.user}</span>
+                          <span className="badge badge-purple">{post.role}</span>
                         </div>
-                        <span className="font-semibold text-white text-sm">{post.user}</span>
-                        <span className="badge badge-purple">{post.role}</span>
+                        <span className="text-xs text-gray-500">{post.time}</span>
                       </div>
-                      <span className="text-xs text-gray-500">{post.time}</span>
+                      <p className="text-sm text-gray-300 leading-relaxed">{post.content}</p>
                     </div>
-                    <p className="text-sm text-gray-300">{post.content}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* ─── 8. TAB: MIEMBROS & EQUIPOS ─── */}
+          {/* ─── 8. TAB: MIEMBROS & EQUIPOS (GESTIÓN ADMIN/SUPERADMIN) ─── */}
           {activeTab === 'invitations' && (
             <div className="space-y-8 animate-fade-in">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1824,101 +1410,120 @@ export default function HomePage() {
                   }}
                   className="btn-primary text-xs"
                 >
-                  + Invitar Miembro
+                  + Crear / Invitar Miembro
                 </button>
               </div>
 
-              <div className="glass-panel p-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-800 text-gray-400">
-                        <th className="pb-3 font-semibold">Nombre</th>
-                        <th className="pb-3 font-semibold">Email</th>
-                        <th className="pb-3 font-semibold">Rol Asignado</th>
-                        <th className="pb-3 font-semibold">Estado</th>
-                        <th className="pb-3 font-semibold text-right">Acciones de Control</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                      {members.map((m) => (
-                        <tr key={m.id} className="hover:bg-white/5 transition">
-                          <td className="py-3 font-semibold text-white flex items-center gap-2">
-                            <span className="text-xl">{m.avatar || '👤'}</span>
-                            <span>{m.name}</span>
-                          </td>
-                          <td className="py-3 text-gray-300">{m.email}</td>
-                          <td className="py-3">
-                            <select
-                              value={m.role}
-                              onChange={(e) => {
-                                const newRole = e.target.value;
-                                setSecurityConfirmModal({
-                                  isOpen: true,
-                                  title: `🔒 Confirmar Cambio de Rol para ${m.name}`,
-                                  message: `¿Estás seguro de modificar el rol de ${m.name} a "${newRole.toUpperCase()}"? Para aplicar el cambio escribe "CONFIRMAR":`,
-                                  requiredWord: 'CONFIRMAR',
-                                  typedWord: '',
-                                  actionType: 'change_role',
-                                  targetMemberId: m.id,
-                                  targetRole: newRole,
-                                });
-                              }}
-                              className="form-input text-xs py-1 px-2 font-semibold border-purple-500/30"
-                            >
-                              <option value="superadmin">👑 SUPERADMIN</option>
-                              <option value="owner">🏛️ DIRECTOR</option>
-                              <option value="teacher">🕺 PROFESOR</option>
-                              <option value="reception">📋 RECEPCIÓN</option>
-                              <option value="student">💃 ALUMNO</option>
-                            </select>
-                          </td>
-                          <td className="py-3">
-                            <button
-                              onClick={async () => {
-                                const updatedStatus = m.status.includes('Activo') ? 'Inactivo' : 'Activo';
-                                setMembers(members.map((item) => (item.id === m.id ? { ...item, status: updatedStatus } : item)));
-                                setToastMessage(`Estado de ${m.name} cambiado a ${updatedStatus}.`);
-                                try {
-                                  await supabase.from('organization_members').upsert({
-                                    organization_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-                                    user_id: m.id,
-                                    role: m.role === 'superadmin' ? 'owner' : (m.role as any),
-                                    is_active: updatedStatus === 'Activo',
-                                  }, { onConflict: 'organization_id,user_id' });
-                                } catch (err) {
-                                  console.warn('Error actualizando estado en BD:', err);
-                                }
-                              }}
-                              className={`badge cursor-pointer transition hover:scale-105 ${m.status.includes('Activo') ? 'badge-emerald' : 'badge-amber'}`}
-                            >
-                              {m.status} 🔄
-                            </button>
-                          </td>
-                          <td className="py-3 text-right">
-                            <button
-                              onClick={() => {
-                                setSecurityConfirmModal({
-                                  isOpen: true,
-                                  title: `⚠️ ELIMINAR CUENTA DE ${m.name.toUpperCase()}`,
-                                  message: `Acción destructiva e irreversible. Esta cuenta será completamente eliminada de la base de datos de la escuela. Para confirmar la eliminación, escribe la palabra "ELIMINAR" abajo:`,
-                                  requiredWord: 'ELIMINAR',
-                                  typedWord: '',
-                                  actionType: 'delete',
-                                  targetMemberId: m.id,
-                                });
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-bold hover:bg-rose-500/30 transition"
-                            >
-                              🗑️ Eliminar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {members.length === 0 ? (
+                <div className="glass-panel p-10 text-center space-y-3">
+                  <span className="text-4xl">👥</span>
+                  <h3 className="font-bold text-white text-lg">No hay miembros registrados todavía</h3>
+                  <p className="text-xs text-gray-400 max-w-md mx-auto">
+                    Crea usuarios directamente en la base de datos o envíales una invitación formal.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (requireAuth()) {
+                        setModalType('member');
+                        setIsModalOpen(true);
+                      }
+                    }}
+                    className="btn-primary text-xs mt-2"
+                  >
+                    + Crear Primer Usuario en BD
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <div className="glass-panel p-6">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-800 text-gray-400">
+                          <th className="pb-3 font-semibold">Nombre</th>
+                          <th className="pb-3 font-semibold">Email</th>
+                          <th className="pb-3 font-semibold">Rol Asignado</th>
+                          <th className="pb-3 font-semibold">Estado</th>
+                          <th className="pb-3 font-semibold text-right">Acciones de Control</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {members.map((m) => (
+                          <tr key={m.id} className="hover:bg-white/5 transition">
+                            <td className="py-3 font-semibold text-white flex items-center gap-2">
+                              <span className="text-xl">{m.avatar || '👤'}</span>
+                              <span>{m.name}</span>
+                            </td>
+                            <td className="py-3 text-gray-300">{m.email}</td>
+                            <td className="py-3">
+                              <select
+                                value={m.role}
+                                onChange={(e) => {
+                                  const newRole = e.target.value;
+                                  setSecurityConfirmModal({
+                                    isOpen: true,
+                                    title: `🔒 Confirmar Cambio de Rol para ${m.name}`,
+                                    message: `¿Estás seguro de modificar el rol de ${m.name} a "${newRole.toUpperCase()}"? Para aplicar el cambio escribe "CONFIRMAR":`,
+                                    requiredWord: 'CONFIRMAR',
+                                    typedWord: '',
+                                    actionType: 'change_role',
+                                    targetMemberId: m.id,
+                                    targetRole: newRole,
+                                  });
+                                }}
+                                className="form-input text-xs py-1 px-2 font-semibold border-purple-500/30"
+                              >
+                                {currentUser?.role === 'superadmin' && <option value="superadmin">👑 SUPERADMIN</option>}
+                                <option value="owner">🏛️ DIRECTOR</option>
+                                <option value="teacher">🕺 PROFESOR</option>
+                                <option value="reception">📋 RECEPCIÓN</option>
+                                <option value="student">💃 ALUMNO</option>
+                              </select>
+                            </td>
+                            <td className="py-3">
+                              <button
+                                onClick={async () => {
+                                  const isCurrentlyActive = m.status.includes('Activo');
+                                  const newActive = !isCurrentlyActive;
+                                  await dbService.updateMemberStatus(m.id, newActive);
+                                  setMembers((prev) =>
+                                    prev.map((item) =>
+                                      item.id === m.id ? { ...item, status: newActive ? 'Activo' : 'Inactivo' } : item
+                                    )
+                                  );
+                                  setToastMessage(`Estado de ${m.name} actualizado a ${newActive ? 'Activo' : 'Inactivo'} en la BD.`);
+                                }}
+                                className={`badge cursor-pointer transition hover:scale-105 ${
+                                  m.status.includes('Activo') ? 'badge-emerald' : 'badge-amber'
+                                }`}
+                              >
+                                {m.status} 🔄
+                              </button>
+                            </td>
+                            <td className="py-3 text-right">
+                              <button
+                                onClick={() => {
+                                  setSecurityConfirmModal({
+                                    isOpen: true,
+                                    title: `⚠️ ELIMINAR CUENTA DE ${m.name.toUpperCase()}`,
+                                    message: `Acción destructiva e irreversible. Esta cuenta será completamente eliminada de la base de datos de la escuela. Para confirmar la eliminación, escribe la palabra "ELIMINAR" abajo:`,
+                                    requiredWord: 'ELIMINAR',
+                                    typedWord: '',
+                                    actionType: 'delete',
+                                    targetMemberId: m.id,
+                                  });
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-bold hover:bg-rose-500/30 transition"
+                              >
+                                🗑️ Eliminar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1927,7 +1532,7 @@ export default function HomePage() {
             <div className="space-y-8 animate-fade-in">
               <div>
                 <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Integrantes de la Comunidad</h1>
-                <p className="text-gray-400 text-sm mt-1">Directorio público de profesores, alumnos y equipo con filtros de visibilidad.</p>
+                <p className="text-gray-400 text-sm mt-1">Directorio de profesores, alumnos y equipo con filtros en tiempo real.</p>
               </div>
 
               {/* Filters & Search Header */}
@@ -1971,134 +1576,185 @@ export default function HomePage() {
               </div>
 
               {/* Members Grid Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {members
-                  .filter((m) => {
-                    const matchSearch =
-                      memberSearch === '' ||
-                      m.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
-                      m.email.toLowerCase().includes(memberSearch.toLowerCase()) ||
-                      m.discipline.toLowerCase().includes(memberSearch.toLowerCase());
-                    const matchRole = memberRoleFilter === 'all' || m.role === memberRoleFilter;
-                    const matchVis = !onlyVisibleMembers || m.isPublic;
-                    return matchSearch && matchRole && matchVis;
-                  })
-                  .map((m) => (
-                    <div key={m.id} className="glass-panel p-5 flex flex-col justify-between hover:border-purple-500/40 transition">
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-3xl">{m.avatar || '👤'}</span>
-                          <span
-                            className={`badge ${
-                              m.role === 'owner'
-                                ? 'badge-purple font-bold'
-                                : m.role === 'teacher'
-                                ? 'badge-cyan font-bold'
-                                : m.role === 'reception'
-                                ? 'badge-amber font-bold'
-                                : 'badge-emerald'
-                            }`}
+              {members.filter((m) => {
+                const matchSearch =
+                  memberSearch === '' ||
+                  m.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
+                  m.email.toLowerCase().includes(memberSearch.toLowerCase()) ||
+                  m.discipline.toLowerCase().includes(memberSearch.toLowerCase());
+                const matchRole = memberRoleFilter === 'all' || m.role === memberRoleFilter;
+                const matchVis = !onlyVisibleMembers || m.isPublic;
+                return matchSearch && matchRole && matchVis;
+              }).length === 0 ? (
+                <div className="glass-panel p-10 text-center text-xs text-gray-400">
+                  No se encontraron integrantes que coincidan con la búsqueda o filtros.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {members
+                    .filter((m) => {
+                      const matchSearch =
+                        memberSearch === '' ||
+                        m.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
+                        m.email.toLowerCase().includes(memberSearch.toLowerCase()) ||
+                        m.discipline.toLowerCase().includes(memberSearch.toLowerCase());
+                      const matchRole = memberRoleFilter === 'all' || m.role === memberRoleFilter;
+                      const matchVis = !onlyVisibleMembers || m.isPublic;
+                      return matchSearch && matchRole && matchVis;
+                    })
+                    .map((m) => (
+                      <div key={m.id} className="glass-panel p-5 flex flex-col justify-between hover:border-purple-500/40 transition">
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-3xl">{m.avatar || '👤'}</span>
+                            <span
+                              className={`badge ${
+                                m.role === 'superadmin'
+                                  ? 'badge-purple font-bold'
+                                  : m.role === 'owner'
+                                  ? 'badge-purple font-bold'
+                                  : m.role === 'teacher'
+                                  ? 'badge-cyan font-bold'
+                                  : m.role === 'reception'
+                                  ? 'badge-amber font-bold'
+                                  : 'badge-emerald'
+                              }`}
+                            >
+                              {m.role.toUpperCase()}
+                            </span>
+                          </div>
+                          <h3 className="font-heading font-bold text-lg text-white mb-0.5">{m.name}</h3>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs text-purple-300 font-semibold">💃 {m.discipline}</span>
+                            <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-md text-gray-300">
+                              {m.danceRole || 'Ambos'}
+                            </span>
+                          </div>
+
+                          {m.bio && <p className="text-xs text-gray-400 mb-3 line-clamp-2 leading-relaxed">{m.bio}</p>}
+
+                          {/* Social Links */}
+                          <div className="flex items-center gap-2 mb-3">
+                            {m.instagram && (
+                              <a
+                                href={`https://instagram.com/${m.instagram.replace('@', '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2 py-1 rounded-lg bg-pink-500/15 border border-pink-500/30 text-pink-300 text-[10px] font-semibold hover:bg-pink-500/25 transition"
+                              >
+                                📸 {m.instagram}
+                              </a>
+                            )}
+                            {m.tiktok && (
+                              <a
+                                href={`https://tiktok.com/@${m.tiktok.replace('@', '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[10px] font-semibold hover:bg-cyan-500/25 transition"
+                              >
+                                🎵 {m.tiktok}
+                              </a>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 text-[11px] text-gray-400 bg-gray-950 p-2 rounded-xl border border-gray-800">
+                            <span>Visibilidad:</span>
+                            <span className={`font-semibold ${m.isPublic ? 'text-emerald-400' : 'text-gray-500'}`}>
+                              {m.isPublic ? '🌐 Visible en Directorio' : '🔒 Privado'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 mt-4 border-t border-gray-800 flex items-center justify-between">
+                          <span className="text-[11px] text-gray-400 truncate max-w-[140px]">{m.email}</span>
+                          <button
+                            onClick={() => setSelectedMemberProfile(m)}
+                            className="btn-secondary text-xs py-1 px-2.5"
                           >
-                            {m.role.toUpperCase()}
-                          </span>
-                        </div>
-                        <h3 className="font-heading font-bold text-lg text-white mb-0.5">{m.name}</h3>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs text-purple-300 font-semibold">💃 {m.discipline}</span>
-                          <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-md text-gray-300">
-                            {m.danceRole || 'Leader & Follower'}
-                          </span>
-                        </div>
-
-                        {m.bio && <p className="text-xs text-gray-400 mb-3 line-clamp-2 leading-relaxed">{m.bio}</p>}
-
-                        {/* Social Links */}
-                        <div className="flex items-center gap-2 mb-3">
-                          {m.instagram && (
-                            <a
-                              href={`https://instagram.com/${m.instagram.replace('@', '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-2 py-1 rounded-lg bg-pink-500/15 border border-pink-500/30 text-pink-300 text-[10px] font-semibold hover:bg-pink-500/25 transition"
-                            >
-                              📸 {m.instagram}
-                            </a>
-                          )}
-                          {m.tiktok && (
-                            <a
-                              href={`https://tiktok.com/@${m.tiktok.replace('@', '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-2 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[10px] font-semibold hover:bg-cyan-500/25 transition"
-                            >
-                              🎵 {m.tiktok}
-                            </a>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 text-[11px] text-gray-400 bg-gray-950 p-2 rounded-xl border border-gray-800">
-                          <span>Visibilidad:</span>
-                          <span className={`font-semibold ${m.isPublic ? 'text-emerald-400' : 'text-gray-500'}`}>
-                            {m.isPublic ? '🌐 Visible en Directorio' : '🔒 Privado'}
-                          </span>
+                            👁️ Ver Perfil
+                          </button>
                         </div>
                       </div>
-
-                      <div className="pt-4 mt-4 border-t border-gray-800 flex items-center justify-between">
-                        <span className="text-[11px] text-gray-400 truncate max-w-[140px]">{m.email}</span>
-                        <button
-                          onClick={() => setSelectedMemberProfile(m)}
-                          className="btn-secondary text-xs py-1 px-2.5"
-                        >
-                          👁️ Ver Perfil
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
+                    ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* ─── 10. TAB: EVENTOS SOCIALES & FIESTAS SBK ─── */}
           {activeTab === 'socials' && (
             <div className="space-y-8 animate-fade-in">
-              <div>
-                <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Eventos Sociales & Fiestas SBK</h1>
-                <p className="text-gray-400 text-sm mt-1">Noches de baile social, talleres especiales y sesiones de práctica.</p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-white">Eventos Sociales & Fiestas SBK</h1>
+                  <p className="text-gray-400 text-sm mt-1">Noches de baile social, talleres especiales y sesiones de práctica.</p>
+                </div>
+                {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'superadmin') && (
+                  <button
+                    onClick={() => {
+                      setModalType('social_event');
+                      setIsModalOpen(true);
+                    }}
+                    className="btn-primary text-xs"
+                  >
+                    + Programar Nuevo Social
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {socialEvents.map((soc) => (
-                  <div key={soc.id} className="glass-panel p-6 flex flex-col justify-between hover:border-purple-500/40 transition">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="badge badge-purple">{soc.badge}</span>
-                        <span className="badge badge-emerald">{soc.price}</span>
+              {socialEvents.length === 0 ? (
+                <div className="glass-panel p-10 text-center space-y-3">
+                  <span className="text-4xl">🎉</span>
+                  <h3 className="font-bold text-white text-lg">No hay eventos sociales programados</h3>
+                  <p className="text-xs text-gray-400 max-w-md mx-auto">
+                    Programa noches de baile social SBK para que los alumnos y la comunidad se reúnan a bailar.
+                  </p>
+                  {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'owner' || currentUser.role === 'superadmin') && (
+                    <button
+                      onClick={() => {
+                        setModalType('social_event');
+                        setIsModalOpen(true);
+                      }}
+                      className="btn-primary text-xs mt-2"
+                    >
+                      + Programar Primer Social
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {socialEvents.map((soc) => (
+                    <div key={soc.id} className="glass-panel p-6 flex flex-col justify-between hover:border-purple-500/40 transition">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="badge badge-purple">{soc.badge}</span>
+                          <span className="badge badge-emerald">{soc.price}</span>
+                        </div>
+                        <h3 className="font-heading font-bold text-xl text-white mb-1">{soc.title}</h3>
+                        <p className="text-xs font-semibold text-purple-300 mb-2">🗓️ {soc.date}</p>
+                        <p className="text-xs text-gray-400 mb-3">📍 {soc.location}</p>
+                        <p className="text-xs text-gray-300 bg-gray-950 p-3 rounded-xl border border-gray-800 leading-relaxed mb-4">
+                          {soc.description}
+                        </p>
                       </div>
-                      <h3 className="font-heading font-bold text-xl text-white mb-1">{soc.title}</h3>
-                      <p className="text-xs font-semibold text-purple-300 mb-2">🗓️ {soc.date}</p>
-                      <p className="text-xs text-gray-400 mb-3">📍 {soc.location}</p>
-                      <p className="text-xs text-gray-300 bg-gray-950 p-3 rounded-xl border border-gray-800 leading-relaxed mb-4">
-                        {soc.description}
-                      </p>
-                    </div>
 
-                    <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
-                      <span className="text-[11px] text-gray-400">Org: {soc.organizer}</span>
-                      <button
-                        onClick={() => {
-                          if (requireAuth()) {
-                            setToastMessage(`🎉 Plaza confirmada para "${soc.title}".`);
-                          }
-                        }}
-                        className="btn-primary text-xs py-1.5 px-3"
-                      >
-                        Asistir al Social
-                      </button>
+                      <div className="pt-4 border-t border-gray-800 flex items-center justify-between">
+                        <span className="text-[11px] text-gray-400">Org: {soc.organizer}</span>
+                        <button
+                          onClick={() => {
+                            if (requireAuth()) {
+                              setToastMessage(`🎉 Plaza confirmada para "${soc.title}".`);
+                            }
+                          }}
+                          className="btn-primary text-xs py-1.5 px-3"
+                        >
+                          Asistir al Social
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -2221,7 +1877,7 @@ export default function HomePage() {
                       );
                       setEditingProgram({ ...editingProgram, modules: updated });
                     }}
-                    placeholder="URL del Vídeo (YouTube, Vimeo, Drive...)"
+                    placeholder="URL del Vídeo (YouTube, Vimeo...)"
                     className="form-input text-xs"
                   />
                 </div>
@@ -2239,10 +1895,13 @@ export default function HomePage() {
       {/* Dynamic Creation Modals */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={
         modalType === 'program' ? 'Crear Nuevo Programa' :
+        modalType === 'session' ? 'Programar Nueva Clase' :
         modalType === 'quest' ? 'Crear Reto Pedagógico' :
         modalType === 'post' ? 'Nueva Publicación en Comunidad' :
-        modalType === 'member' ? 'Invitar Nuevo Miembro' : 'Crear Elemento'
+        modalType === 'social_event' ? 'Programar Evento Social SBK' :
+        modalType === 'member' ? 'Gestión de Miembros en la BD' : 'Crear Elemento'
       }>
+        {/* MODAL 1: PROGRAMA */}
         {modalType === 'program' && (
           <form onSubmit={handleCreateProgram} className="space-y-4">
             <div>
@@ -2285,11 +1944,57 @@ export default function HomePage() {
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
-              <button type="submit" className="btn-primary text-xs">Guardar en BD</button>
+              <button type="submit" className="btn-primary text-xs">Guardar Programa en BD</button>
             </div>
           </form>
         )}
 
+        {/* MODAL 2: SESIÓN / CLASE */}
+        {modalType === 'session' && (
+          <form onSubmit={handleCreateSession} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Nombre de la Clase</label>
+              <input
+                type="text"
+                value={newSessionName}
+                onChange={(e) => setNewSessionName(e.target.value)}
+                placeholder="Ej: Bachata Sensual Nivel 1"
+                className="form-input"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Horario</label>
+                <input
+                  type="text"
+                  value={newSessionTime}
+                  onChange={(e) => setNewSessionTime(e.target.value)}
+                  placeholder="Ej: Martes 19:30 - 20:30"
+                  className="form-input text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Aforo Máximo (Plazas)</label>
+                <input
+                  type="number"
+                  value={newSessionCapacity}
+                  onChange={(e) => setNewSessionCapacity(Number(e.target.value))}
+                  min={1}
+                  className="form-input text-xs"
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
+              <button type="submit" className="btn-primary text-xs">Programar Clase en BD</button>
+            </div>
+          </form>
+        )}
+
+        {/* MODAL 3: RETO / QUEST */}
         {modalType === 'quest' && (
           <form onSubmit={handleCreateQuest} className="space-y-4">
             <div>
@@ -2298,7 +2003,7 @@ export default function HomePage() {
                 type="text"
                 value={newQuestTitle}
                 onChange={(e) => setNewQuestTitle(e.target.value)}
-                placeholder="Ej: Ejecución de Dile que No con estilo"
+                placeholder="Ej: Onda Sensual Bachata con aislamiento"
                 className="form-input"
                 required
               />
@@ -2320,6 +2025,7 @@ export default function HomePage() {
           </form>
         )}
 
+        {/* MODAL 4: PUBLICACIÓN EN COMUNIDAD */}
         {modalType === 'post' && (
           <form onSubmit={handleCreatePost} className="space-y-4">
             <div>
@@ -2339,37 +2045,225 @@ export default function HomePage() {
           </form>
         )}
 
-        {modalType === 'member' && (
-          <form onSubmit={handleInviteMember} className="space-y-4">
+        {/* MODAL 5: EVENTO SOCIAL */}
+        {modalType === 'social_event' && (
+          <form onSubmit={handleCreateSocialEvent} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">Email del Nuevo Miembro</label>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Título del Evento Social</label>
               <input
-                type="email"
-                value={newMemberEmail}
-                onChange={(e) => setNewMemberEmail(e.target.value)}
-                placeholder="profesor@email.com"
+                type="text"
+                value={newEventTitle}
+                onChange={(e) => setNewEventTitle(e.target.value)}
+                placeholder="Ej: Noche SBK & Taller de Bachata"
                 className="form-input"
                 required
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Fecha y Hora</label>
+                <input
+                  type="text"
+                  value={newEventDate}
+                  onChange={(e) => setNewEventDate(e.target.value)}
+                  placeholder="Ej: Sábado 23:00 - 03:30"
+                  className="form-input text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Precio / Entrada</label>
+                <input
+                  type="text"
+                  value={newEventPrice}
+                  onChange={(e) => setNewEventPrice(e.target.value)}
+                  placeholder="Ej: 10 € (Incluye consumición)"
+                  className="form-input text-xs"
+                  required
+                />
+              </div>
+            </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1">Rol a Asignar</label>
-              <select
-                value={newMemberRole}
-                onChange={(e) => setNewMemberRole(e.target.value)}
-                className="form-input"
-              >
-                <option value="owner">Director / Owner</option>
-                <option value="teacher">Profesor</option>
-                <option value="reception">Recepción</option>
-                <option value="student">Alumno</option>
-              </select>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Ubicación</label>
+              <input
+                type="text"
+                value={newEventLocation}
+                onChange={(e) => setNewEventLocation(e.target.value)}
+                placeholder="Ej: Sala Principal Plaza Dance"
+                className="form-input text-xs"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Descripción</label>
+              <textarea
+                value={newEventDescription}
+                onChange={(e) => setNewEventDescription(e.target.value)}
+                placeholder="Detalles de la fiesta, DJ, talleres previos..."
+                className="form-input h-20 resize-none text-xs"
+              ></textarea>
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
-              <button type="submit" className="btn-primary text-xs">Guardar Invitación en BD</button>
+              <button type="submit" className="btn-primary text-xs">Guardar Social en BD</button>
             </div>
           </form>
+        )}
+
+        {/* MODAL 6: MIEMBROS (DIRECTO + INVITACIÓN) */}
+        {modalType === 'member' && (
+          <div className="space-y-4">
+            {/* Tabs for Member Modal */}
+            <div className="flex bg-gray-900 p-1 rounded-xl border border-gray-800">
+              <button
+                type="button"
+                onClick={() => setMemberCreateMode('direct')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
+                  memberCreateMode === 'direct' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Crear Usuario Directamente en BD
+              </button>
+              <button
+                type="button"
+                onClick={() => setMemberCreateMode('invite')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
+                  memberCreateMode === 'invite' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Enviar Invitación
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateOrInviteMember} className="space-y-4">
+              {memberCreateMode === 'direct' && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1">Nombre Completo</label>
+                  <input
+                    type="text"
+                    value={newMemberName}
+                    onChange={(e) => setNewMemberName(e.target.value)}
+                    placeholder="Ej: Marcos Profesor"
+                    className="form-input"
+                    required
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Correo Electrónico</label>
+                <input
+                  type="email"
+                  value={newMemberEmail}
+                  onChange={(e) => setNewMemberEmail(e.target.value)}
+                  placeholder="usuario@email.com"
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              {memberCreateMode === 'direct' && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1">Contraseña Inicial</label>
+                  <input
+                    type="password"
+                    value={newMemberPassword}
+                    onChange={(e) => setNewMemberPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="form-input"
+                    required
+                    minLength={6}
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1">Rol a Asignar</label>
+                  <select
+                    value={newMemberRole}
+                    onChange={(e) => setNewMemberRole(e.target.value)}
+                    className="form-input text-xs"
+                  >
+                    {currentUser?.role === 'superadmin' && <option value="superadmin">👑 SuperAdmin Global</option>}
+                    <option value="owner">🏛️ Director / Owner</option>
+                    <option value="teacher">🕺 Profesor</option>
+                    <option value="reception">📋 Recepción</option>
+                    <option value="student">💃 Alumno</option>
+                  </select>
+                </div>
+
+                {memberCreateMode === 'direct' ? (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">Disciplina Principal</label>
+                    <input
+                      type="text"
+                      value={newMemberDiscipline}
+                      onChange={(e) => setNewMemberDiscipline(e.target.value)}
+                      placeholder="Ej: Salsa Cubana"
+                      className="form-input text-xs"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">Escuela</label>
+                    <input
+                      type="text"
+                      value={activeOrgName}
+                      disabled
+                      className="form-input text-xs bg-gray-900 opacity-70"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {memberCreateMode === 'direct' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">Rol de Baile</label>
+                      <select
+                        value={newMemberDanceRole}
+                        onChange={(e) => setNewMemberDanceRole(e.target.value)}
+                        className="form-input text-xs"
+                      >
+                        <option value="both">Ambos (Leader & Follower)</option>
+                        <option value="leader">Líder (Leader)</option>
+                        <option value="follower">Seguidor/a (Follower)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-300 mb-1">Teléfono (Opcional)</label>
+                      <input
+                        type="tel"
+                        value={newMemberPhone}
+                        onChange={(e) => setNewMemberPhone(e.target.value)}
+                        placeholder="+34 600 000 000"
+                        className="form-input text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">Biografía Breve (Opcional)</label>
+                    <textarea
+                      value={newMemberBio}
+                      onChange={(e) => setNewMemberBio(e.target.value)}
+                      placeholder="Experiencia de baile o funciones en la escuela..."
+                      className="form-input h-16 resize-none text-xs"
+                    ></textarea>
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary text-xs">Cancelar</button>
+                <button type="submit" className="btn-primary text-xs">
+                  {memberCreateMode === 'direct' ? '💾 Guardar Usuario en la BD' : '📩 Guardar Invitación en BD'}
+                </button>
+              </div>
+            </form>
+          </div>
         )}
       </Modal>
 
@@ -2386,15 +2280,18 @@ export default function HomePage() {
                 ✕
               </button>
               <div className="absolute -bottom-8 left-6">
-                <div className="w-20 h-20 rounded-2xl bg-slate-950 border-4 border-slate-950 flex items-center justify-center text-4xl shadow-xl">
-                  {selectedMemberProfile.avatar || '👤'}
+                <div className="w-20 h-20 rounded-2xl bg-slate-950 border-4 border-slate-950 flex items-center justify-center text-4xl shadow-xl overflow-hidden">
+                  {selectedMemberProfile.avatarUrl ? (
+                    <img src={selectedMemberProfile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{selectedMemberProfile.avatar || '👤'}</span>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Content Body */}
             <div className="pt-12 px-6 pb-6 space-y-5">
-              {/* Name & Role */}
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="font-heading font-extrabold text-xl text-white">{selectedMemberProfile.name}</h2>
@@ -2402,6 +2299,7 @@ export default function HomePage() {
                 </div>
                 <span
                   className={`badge font-bold text-xs ${
+                    selectedMemberProfile.role === 'superadmin' ? 'badge-purple' :
                     selectedMemberProfile.role === 'owner' ? 'badge-purple' :
                     selectedMemberProfile.role === 'teacher' ? 'badge-cyan' :
                     selectedMemberProfile.role === 'reception' ? 'badge-amber' : 'badge-emerald'
@@ -2411,14 +2309,12 @@ export default function HomePage() {
                 </span>
               </div>
 
-              {/* Bio */}
               {selectedMemberProfile.bio && (
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                   <p className="text-sm text-gray-300 leading-relaxed italic">"{selectedMemberProfile.bio}"</p>
                 </div>
               )}
 
-              {/* Info Grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-900 rounded-xl p-3 border border-gray-800">
                   <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">Disciplina</span>
@@ -2426,7 +2322,7 @@ export default function HomePage() {
                 </div>
                 <div className="bg-gray-900 rounded-xl p-3 border border-gray-800">
                   <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">Rol de Baile</span>
-                  <span className="text-sm text-cyan-300 font-semibold">🎭 {selectedMemberProfile.danceRole || 'Leader & Follower'}</span>
+                  <span className="text-sm text-cyan-300 font-semibold">🎭 {selectedMemberProfile.danceRole || 'Ambos'}</span>
                 </div>
                 <div className="bg-gray-900 rounded-xl p-3 border border-gray-800">
                   <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">Estado</span>
@@ -2472,7 +2368,6 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Close Button */}
               <button
                 onClick={() => setSelectedMemberProfile(null)}
                 className="btn-secondary w-full justify-center text-sm py-2.5"
@@ -2488,7 +2383,6 @@ export default function HomePage() {
       {securityConfirmModal.isOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
           <div className="glass-panel w-full max-w-md p-6 sm:p-8 bg-slate-950 border-rose-500/40 shadow-2xl relative rounded-2xl">
-            {/* Close */}
             <button
               onClick={() => setSecurityConfirmModal({ ...securityConfirmModal, isOpen: false, typedWord: '' })}
               className="absolute top-4 right-4 text-gray-400 hover:text-white transition text-xl font-bold w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10"
@@ -2496,7 +2390,6 @@ export default function HomePage() {
               ✕
             </button>
 
-            {/* Icon */}
             <div className="text-center mb-5">
               <div className="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-3xl mx-auto mb-3">
                 {securityConfirmModal.actionType === 'delete' ? '⚠️' : '🔒'}
@@ -2504,10 +2397,8 @@ export default function HomePage() {
               <h2 className="font-heading font-extrabold text-lg text-white">{securityConfirmModal.title}</h2>
             </div>
 
-            {/* Message */}
             <p className="text-sm text-gray-300 leading-relaxed mb-4 text-center">{securityConfirmModal.message}</p>
 
-            {/* Captcha Input */}
             <div className="mb-4">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <span className="text-xs text-gray-400">Escribe:</span>
@@ -2525,7 +2416,6 @@ export default function HomePage() {
               />
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-3">
               <button
                 onClick={() => setSecurityConfirmModal({ ...securityConfirmModal, isOpen: false, typedWord: '' })}
