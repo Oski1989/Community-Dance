@@ -11,6 +11,8 @@ interface NavbarProps {
   userAvatar?: string;
   unreadCount?: number;
   activeTab?: string;
+  isCloudConnected?: boolean;
+  onCloudHelpClick?: () => void;
   onTabChange?: (tab: string) => void;
   onNotificationsClick?: () => void;
   onLoginClick?: () => void;
@@ -27,6 +29,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   userAvatar = '',
   unreadCount = 0,
   activeTab = 'about',
+  isCloudConnected = false,
+  onCloudHelpClick,
   onTabChange,
   onNotificationsClick,
   onLoginClick,
@@ -100,6 +104,25 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="font-medium">{orgName}</span>
             </div>
           )}
+
+          {/* Database Cloud Connection Status Indicator */}
+          <button
+            type="button"
+            onClick={onCloudHelpClick}
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition cursor-pointer hover:opacity-80 ${
+              isCloudConnected
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+            }`}
+            title={
+              isCloudConnected
+                ? 'Conectado a la base de datos central en Supabase. Los datos se sincronizan entre todos los dispositivos.'
+                : 'Modo local: El proyecto Supabase en la nube no responde. Pulsa para ver instrucciones de sincronización.'
+            }
+          >
+            <span className={`w-2 h-2 rounded-full ${isCloudConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+            <span>{isCloudConnected ? 'Nube Conectada' : 'Nube Pausada (Local)'}</span>
+          </button>
         </div>
 
         {/* Horizontal Nav Links (Desktop & Tablet) */}

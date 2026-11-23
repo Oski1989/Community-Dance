@@ -18,6 +18,7 @@ export interface UserProfile {
   birthdate?: string;
   avatar?: string;
   avatarUrl?: string;
+  password?: string;
 }
 
 export interface ProgramItem {
@@ -88,6 +89,7 @@ const BOOTSTRAP_SUPERADMIN: UserProfile = {
   id: 'usr_superadmin_001',
   name: 'SuperAdmin Global',
   email: 'superadmin@plazadance.com',
+  password: 'PlazaDance2026!',
   role: 'superadmin',
   status: 'Activo',
   isPublic: true,
@@ -175,6 +177,19 @@ function saveStorage<T>(key: string, value: T): void {
 }
 
 class DatabaseService {
+  isCloudActive(): boolean {
+    return isSupabaseOnline;
+  }
+
+  async checkCloudConnection(): Promise<boolean> {
+    try {
+      const res: any = await safeDbCall(() => supabase.from('organizations').select('id').limit(1), 700);
+      return res !== null && !res.error;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Get or initialize the primary active organization
    */
@@ -366,6 +381,7 @@ class DatabaseService {
       id: generatedId,
       name: cleanName,
       email: cleanEmail,
+      password: params.password,
       role: role,
       status: 'Activo',
       isPublic: true,

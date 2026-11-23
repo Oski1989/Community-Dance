@@ -103,17 +103,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
         if (matchedUser) {
           // Allow superadmin bootstrap credentials
-          if (cleanEmail === 'superadmin@plazadance.com' && password === 'PlazaDance2026!') {
-            authenticated = true;
-            userId = matchedUser.id;
-            userName = matchedUser.name;
-            userRole = 'superadmin';
-          } else if (password.length >= 6) {
-            // Matched registered user in DB
-            authenticated = true;
-            userId = matchedUser.id;
-            userName = matchedUser.name;
-            userRole = matchedUser.role;
+          if (cleanEmail === 'superadmin@plazadance.com') {
+            if (password === 'PlazaDance2026!') {
+              authenticated = true;
+              userId = matchedUser.id;
+              userName = matchedUser.name;
+              userRole = 'superadmin';
+            } else {
+              throw new Error('Contraseña incorrecta para el usuario SuperAdmin.');
+            }
+          } else if (matchedUser.password) {
+            if (matchedUser.password === password) {
+              authenticated = true;
+              userId = matchedUser.id;
+              userName = matchedUser.name;
+              userRole = matchedUser.role;
+            } else {
+              throw new Error('Contraseña incorrecta. Verifique sus datos.');
+            }
           }
         }
       }

@@ -97,6 +97,11 @@ export default function HomePage() {
   const [memberRoleFilter, setMemberRoleFilter] = useState<string>('all');
   const [onlyVisibleMembers, setOnlyVisibleMembers] = useState<boolean>(true);
 
+  // Cloud Database Status & Guidance Modal
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState<boolean>(false);
+  const [isCheckingCloud, setIsCheckingCloud] = useState<boolean>(false);
+
   // Selected Member Profile Modal State
   const [selectedMemberProfile, setSelectedMemberProfile] = useState<UserProfile | null>(null);
 
@@ -334,6 +339,10 @@ export default function HomePage() {
         setQuests(dbQ);
         setCommunityPosts(dbPosts);
         setSocialEvents(dbSoc);
+
+        // Check active cloud database connectivity
+        const cloudActive = await dbService.checkCloudConnection();
+        setIsCloudConnected(cloudActive);
       } catch (err) {
         console.warn('Initialization notice:', err);
       }
@@ -341,6 +350,25 @@ export default function HomePage() {
 
     initAuthAndData();
   }, []);
+
+  // Handler to verify cloud connection on demand
+  const handleCheckCloudConnection = async () => {
+    setIsCheckingCloud(true);
+    try {
+      const active = await dbService.checkCloudConnection();
+      setIsCloudConnected(active);
+      if (active) {
+        setToastMessage('✅ ¡Conectado con éxito a Supabase Nube! Sincronización multi-dispositivo activa.');
+        await fetchMembersFromDB();
+      } else {
+        setToastMessage('⚠️ Supabase sigue sin responder. Revisa que el proyecto no esté pausado en supabase.com.');
+      }
+    } catch {
+      setToastMessage('⚠️ Error comprobando conexión con la nube.');
+    } finally {
+      setIsCheckingCloud(false);
+    }
+  };
 
   // Helper: Require Login Guard
   const requireAuth = () => {
@@ -666,12 +694,32 @@ export default function HomePage() {
         userAvatar={currentUser?.avatarUrl || currentUser?.avatar}
         unreadCount={unreadNotificationsCount}
         activeTab={activeTab}
+        isCloudConnected={isCloudConnected}
+        onCloudHelpClick={() => setIsCloudModalOpen(true)}
         onTabChange={setActiveTab}
         onNotificationsClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
         onLoginClick={() => setIsAuthModalOpen(true)}
         onLogoutClick={handleLogout}
         onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       />
+
+      {/* Cloud Offline Guidance Banner */}
+      {!isCloudConnected && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 flex flex-wrap items-center justify-between text-xs text-amber-300 gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0"></span>
+            <span>
+              <strong>Modo Local (Dispositivo actual):</strong> Supabase en la nube no responde (posiblemente pausado). Los usuarios se guardan en este dispositivo.
+            </span>
+          </div>
+          <button
+            onClick={() => setIsCloudModalOpen(true)}
+            className="underline hover:text-white font-bold text-xs cursor-pointer flex items-center gap-1"
+          >
+            ¿Por qué no veo mis usuarios en el otro dispositivo? Ver solución →
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 flex">
         {/* Left Management Sidebar - ONLY rendered for logged in users */}
@@ -2438,6 +2486,85 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Cloud Status / Cross-Device Sync Guidance Modal */}
+      <Modal
+        isOpen={isCloudModalOpen}
+        onClose={() => setIsCloudModalOpen(false)}
+        title="☁️ Estado de Conexión y Sincronización en la Nube"
+      >
+        <div className="space-y-4 text-sm text-gray-300">
+          <div className={`p-4 rounded-xl border flex items-center gap-3 ${
+            isCloudConnected 
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+              : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+          }`}>
+            <span className="text-3xl">{isCloudConnected ? '🟢' : '🟡'}</span>
+            <div>
+              <div className="font-bold text-white text-base">
+                {isCloudConnected ? 'Conectado a Supabase en la Nube' : 'Modo Almacenamiento Local (Dispositivo)'}
+              </div>
+              <div className="text-xs mt-0.5">
+                {isCloudConnected
+                  ? 'Sincronización multi-dispositivo activa. Cualquier cambio se verá de inmediato en todos los ordenadores y móviles.'
+                  : 'Supabase en la nube no responde (posiblemente pausado por inactividad). La aplicación funciona en modo seguro guardando los datos en este navegador.'}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/60 p-3.5 rounded-xl border border-white/5 space-y-1.5">
+            <h4 className="font-bold text-white text-xs flex items-center gap-1.5">
+              <span>❓</span> ¿Por qué veo un usuario en el ordenador y no en el móvil?
+            </h4>
+            <p className="text-xs text-gray-300 leading-relaxed">
+              En las cuentas gratuitas de Supabase, los proyectos se <strong>pausan automáticamente tras 7 días de inactividad</strong>. Al pausarse, la base de datos central deja de responder por internet. Para que no pierdas tu trabajo, la aplicación guarda automáticamente cada usuario en el navegador local de ese dispositivo.
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-br from-indigo-950/40 to-purple-950/40 p-4 rounded-xl border border-indigo-500/30 space-y-2.5">
+            <div className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+              <span>🛠️</span> Pasos para activar la sincronización entre todos los dispositivos:
+            </div>
+            <ol className="text-xs text-gray-200 list-decimal list-inside space-y-2 pl-1">
+              <li>
+                Entra a <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-sky-400 underline font-semibold">supabase.com/dashboard</a> con tu cuenta.
+              </li>
+              <li>
+                Si tu proyecto dice <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono font-bold">PAUSED</span>, pulsa el botón verde <span className="text-emerald-400 font-bold">"Restore Project"</span> (tardará 1 minuto en reactivarse).
+              </li>
+              <li>
+                Si has creado un proyecto nuevo de Supabase, copia su <strong>Project URL</strong> y <strong>Anon Key</strong> en el archivo <code className="bg-black/40 px-1 py-0.5 rounded text-purple-300">.env.local</code>.
+              </li>
+              <li>
+                Haz clic en el botón de abajo <strong>"Comprobar Conexión Ahora"</strong>.
+              </li>
+            </ol>
+          </div>
+
+          <div className="flex gap-2.5 pt-2">
+            <button
+              onClick={() => setIsCloudModalOpen(false)}
+              className="btn-secondary flex-1 justify-center text-xs py-2.5"
+            >
+              Cerrar
+            </button>
+            <button
+              onClick={handleCheckCloudConnection}
+              disabled={isCheckingCloud}
+              className="btn-primary flex-1 justify-center text-xs py-2.5 flex items-center gap-2"
+            >
+              {isCheckingCloud ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  Comprobando...
+                </>
+              ) : (
+                '🔄 Comprobar Conexión Ahora'
+              )}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
