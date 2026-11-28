@@ -26,6 +26,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
   if (!isOpen) return null;
 
+  // Clear credentials when changing between login and register tabs
+  const handleSwitchTab = (tab: 'login' | 'register') => {
+    setActiveTab(tab);
+    setPassword('');
+    setConfirmPassword('');
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
   // Handle Google / Facebook / Instagram Social OAuth Sign-In
   const handleSocialAuth = async (provider: 'google' | 'facebook' | 'instagram') => {
     setLoading(true);
@@ -39,7 +48,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       });
       if (error) throw error;
     } catch (err: any) {
-      setErrorMessage(err.message || `Error al conectar con ${provider}. Verifique la configuración en Supabase.`);
+      console.warn('OAuth provider notice:', err);
+      const provName = provider.charAt(0).toUpperCase() + provider.slice(1);
+      setErrorMessage(`El acceso con ${provName} requiere que el proveedor esté activado en Supabase (Authentication > Providers) o que la base de datos esté activa. Puedes iniciar sesión o crear tu cuenta con correo y contraseña.`);
     } finally {
       setLoading(false);
     }
@@ -226,14 +237,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
         {/* Tabs: Login / Register */}
         <div className="flex bg-gray-900 p-1 rounded-xl border border-gray-800 mb-5">
           <button
-            onClick={() => { setActiveTab('login'); setErrorMessage(''); setSuccessMessage(''); }}
+            onClick={() => handleSwitchTab('login')}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${activeTab === 'login' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
               }`}
           >
             Iniciar Sesión
           </button>
           <button
-            onClick={() => { setActiveTab('register'); setErrorMessage(''); setSuccessMessage(''); }}
+            onClick={() => handleSwitchTab('register')}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${activeTab === 'register' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
               }`}
           >

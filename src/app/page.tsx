@@ -675,7 +675,37 @@ export default function HomePage() {
     }
   };
 
-  // Dynamic Metrics / KPI Computations
+  // Handler to download DB backup (SuperAdmin only)
+  const handleBackupDownload = async () => {
+    try {
+      const backupPayload = {
+        version: '1.0.0',
+        exportedAt: new Date().toISOString(),
+        organization: { id: activeOrgId, name: activeOrgName },
+        members,
+        programs,
+        sessions,
+        quests,
+        communityPosts,
+        socialEvents,
+      };
+
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupPayload, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `backup_comuny_dance_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      setToastMessage('✅ Copia de seguridad completa descargada exitosamente en formato JSON.');
+    } catch (e: any) {
+      setToastMessage(`⚠️ Error al generar backup: ${e.message}`);
+    }
+  };
+
+  // Pass the handler to Navbar
+  
   const activeStudentsCount = members.filter((m) => m.role === 'student' && m.status.includes('Activo')).length;
   const staffMembersCount = members.filter((m) => m.role !== 'student').length;
   const totalSessionsCapacity = sessions.reduce((acc, s) => acc + s.capacity, 0);
@@ -684,7 +714,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#090D16] text-gray-100 flex flex-col font-sans">
-      {/* Top Navigation Bar */}
       <Navbar
         isLoggedIn={!!currentUser}
         currentRole={currentUser?.role || 'guest'}
@@ -701,25 +730,11 @@ export default function HomePage() {
         onLoginClick={() => setIsAuthModalOpen(true)}
         onLogoutClick={handleLogout}
         onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        onBackupDownload={handleBackupDownload}
       />
 
-      {/* Cloud Offline Guidance Banner */}
-      {!isCloudConnected && (
-        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 flex flex-wrap items-center justify-between text-xs text-amber-300 gap-2">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0"></span>
-            <span>
-              <strong>Modo Local (Dispositivo actual):</strong> Supabase en la nube no responde (posiblemente pausado). Los usuarios se guardan en este dispositivo.
-            </span>
-          </div>
-          <button
-            onClick={() => setIsCloudModalOpen(true)}
-            className="underline hover:text-white font-bold text-xs cursor-pointer flex items-center gap-1"
-          >
-            ¿Por qué no veo mis usuarios en el otro dispositivo? Ver solución →
-          </button>
-        </div>
-      )}
+      {/* Cloud status modal only – no intrusive banner shown to users */}
+
 
       <div className="flex-1 flex">
         {/* Left Management Sidebar - ONLY rendered for logged in users */}
@@ -1505,23 +1520,23 @@ export default function HomePage() {
                             <td className="py-3">
                               <select
                                 value={m.role}
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                   const newRole = e.target.value;
-                                  setSecurityConfirmModal({
-                                    isOpen: true,
-                                    title: `🔒 Confirmar Cambio de Rol para ${m.name}`,
-                                    message: `¿Estás seguro de modificar el rol de ${m.name} a "${newRole.toUpperCase()}"? Para aplicar el cambio escribe "CONFIRMAR":`,
-                                    requiredWord: 'CONFIRMAR',
-                                    typedWord: '',
-                                    actionType: 'change_role',
-                                    targetMemberId: m.id,
-                                    targetRole: newRole,
-                                  });
+                                  try {
+                                    await dbService.updateMemberRole(m.id, newRole);
+                                    setMembers((prev) =>
+                                      prev.map((item) => (item.id === m.id ? { ...item, role: newRole } : item))
+                                    );
+                                    setToastMessage(`👑 Rol de ${m.name} actualizado con éxito a ${newRole.toUpperCase()}.`);
+                                  } catch (err: any) {
+                                    setErrorMessage(err.message || 'Error al actualizar el rol.');
+                                  }
                                 }}
-                                className="form-input text-xs py-1 px-2 font-semibold border-purple-500/30"
+                                className="form-input text-xs py-1 px-2 font-semibold border-purple-500/30 cursor-pointer"
                               >
                                 {currentUser?.role === 'superadmin' && <option value="superadmin">👑 SUPERADMIN</option>}
                                 <option value="owner">🏛️ DIRECTOR</option>
+                                <option value="admin">⚙️ ADMINISTRADOR</option>
                                 <option value="teacher">🕺 PROFESOR</option>
                                 <option value="reception">📋 RECEPCIÓN</option>
                                 <option value="student">💃 ALUMNO</option>

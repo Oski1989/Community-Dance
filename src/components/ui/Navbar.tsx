@@ -18,6 +18,7 @@ interface NavbarProps {
   onLoginClick?: () => void;
   onLogoutClick?: () => void;
   onMobileMenuToggle?: () => void;
+  onBackupDownload?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -36,6 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLoginClick,
   onLogoutClick,
   onMobileMenuToggle,
+  onBackupDownload,
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
@@ -105,23 +107,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
 
-          {/* Database Cloud Connection Status Indicator */}
+          {/* Discreto indicador de estado: solo un punto circular verde o ámbar sin textos visibles */}
           <button
             type="button"
             onClick={onCloudHelpClick}
-            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition cursor-pointer hover:opacity-80 ${
-              isCloudConnected
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
-            }`}
-            title={
-              isCloudConnected
-                ? 'Conectado a la base de datos central en Supabase. Los datos se sincronizan entre todos los dispositivos.'
-                : 'Modo local: El proyecto Supabase en la nube no responde. Pulsa para ver instrucciones de sincronización.'
-            }
+            className="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:scale-125 transition-transform"
+            title={isCloudConnected ? 'Servidor conectado' : 'Modo local'}
+            aria-label="Estado de conexión"
           >
-            <span className={`w-2 h-2 rounded-full ${isCloudConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-            <span>{isCloudConnected ? 'Nube Conectada' : 'Nube Pausada (Local)'}</span>
+            <span className={`w-2.5 h-2.5 rounded-full ${isCloudConnected ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
           </button>
         </div>
 
@@ -146,7 +140,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </nav>
 
-        {/* User Controls & Profile */}
+        {/* Backup button – only visible for superadmin */}
+        {currentRole === 'superadmin' && (
+          <button
+            onClick={onBackupDownload}
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition cursor-pointer bg-indigo-500/10 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 ml-1"
+            title="Descargar copia de seguridad de todos los datos"
+          >
+            📥 <span>Backup</span>
+          </button>
+        )}
         <div className="flex items-center gap-2.5">
           {isLoggedIn ? (
             <>

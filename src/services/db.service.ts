@@ -99,6 +99,75 @@ const BOOTSTRAP_SUPERADMIN: UserProfile = {
   bio: 'SuperAdministrador Global de Plaza Dance SaaS',
 };
 
+// Default seed accounts — one per privilege level (never deleted by resetAndCreateDefaultUsers)
+const SEED_ACCOUNTS: UserProfile[] = [
+  {
+    id: 'usr_owner_001',
+    name: 'Director Plaza Dance',
+    email: 'director@plazadance.com',
+    password: 'Director2026!',
+    role: 'owner',
+    status: 'Activo',
+    isPublic: true,
+    discipline: 'Dirección',
+    danceRole: 'both',
+    avatar: '🏛️',
+    bio: 'Director principal de la escuela',
+  },
+  {
+    id: 'usr_admin_001',
+    name: 'Administrador Plaza Dance',
+    email: 'admin@plazadance.com',
+    password: 'Admin2026!',
+    role: 'admin',
+    status: 'Activo',
+    isPublic: true,
+    discipline: 'Administración',
+    danceRole: 'both',
+    avatar: '⚙️',
+    bio: 'Administrador de la escuela',
+  },
+  {
+    id: 'usr_teacher_001',
+    name: 'Profesor Plaza Dance',
+    email: 'profesor@plazadance.com',
+    password: 'Profesor2026!',
+    role: 'teacher',
+    status: 'Activo',
+    isPublic: true,
+    discipline: 'Salsa & Bachata',
+    danceRole: 'leader',
+    avatar: '🕺',
+    bio: 'Profesor de Salsa y Bachata',
+  },
+  {
+    id: 'usr_reception_001',
+    name: 'Recepción Plaza Dance',
+    email: 'recepcion@plazadance.com',
+    password: 'Recepcion2026!',
+    role: 'reception',
+    status: 'Activo',
+    isPublic: true,
+    discipline: 'Administración',
+    danceRole: 'both',
+    avatar: '📋',
+    bio: 'Personal de recepción',
+  },
+  {
+    id: 'usr_student_001',
+    name: 'Alumno Plaza Dance',
+    email: 'alumno@plazadance.com',
+    password: 'Alumno2026!',
+    role: 'student',
+    status: 'Activo',
+    isPublic: true,
+    discipline: 'Salsa & Bachata',
+    danceRole: 'both',
+    avatar: '💃',
+    bio: 'Alumno de la escuela de baile',
+  },
+];
+
 // Default organization
 const DEFAULT_ORGANIZATION = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -290,10 +359,13 @@ class DatabaseService {
       // Offline / network notice
     }
 
-    // Merge with persisted DB records
-    const localMembers = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, [BOOTSTRAP_SUPERADMIN]);
+    // Merge with persisted DB records (always include seed accounts + superadmin as baseline)
+    const defaultAccounts = [BOOTSTRAP_SUPERADMIN, ...SEED_ACCOUNTS];
+    const localMembers = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, defaultAccounts);
     const map = new Map<string, UserProfile>();
 
+    // Seed accounts always present (can be overridden by stored version if role was changed)
+    defaultAccounts.forEach((m) => map.set(m.id, m));
     localMembers.forEach((m) => map.set(m.id, m));
     remoteMembers.forEach((m) => map.set(m.id, m));
 
@@ -431,7 +503,7 @@ class DatabaseService {
       // Offline / network notice
     }
 
-    const current = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, []);
+    const current = await this.getMembers();
     const updated = current.map((m) => (m.id === userId ? { ...m, role: newRole } : m));
     saveStorage(STORAGE_KEYS.MEMBERS, updated);
   }
@@ -454,7 +526,7 @@ class DatabaseService {
       // Offline / network notice
     }
 
-    const current = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, []);
+    const current = await this.getMembers();
     const updated = current.map((m) => (m.id === userId ? { ...m, status: statusText } : m));
     saveStorage(STORAGE_KEYS.MEMBERS, updated);
   }
@@ -470,7 +542,7 @@ class DatabaseService {
       // Offline / network notice
     }
 
-    const current = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, []);
+    const current = await this.getMembers();
     const updated = current.filter((m) => m.id !== userId);
     saveStorage(STORAGE_KEYS.MEMBERS, updated);
   }
@@ -912,3 +984,4 @@ class DatabaseService {
 }
 
 export const dbService = new DatabaseService();
+
