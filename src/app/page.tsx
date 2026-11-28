@@ -415,6 +415,10 @@ export default function HomePage() {
         // Check active cloud database connectivity
         const cloudActive = await dbService.checkCloudConnection();
         setIsCloudConnected(cloudActive);
+        // Flush any writes that were queued while offline
+        if (cloudActive) {
+          await dbService.syncPendingWrites();
+        }
       } catch (err) {
         console.warn('Initialization notice:', err);
       }
@@ -430,10 +434,15 @@ export default function HomePage() {
       const active = await dbService.checkCloudConnection();
       setIsCloudConnected(active);
       if (active) {
-        setToastMessage('✅ ¡Conectado con éxito a Supabase Nube! Sincronización multi-dispositivo activa.');
+        // Flush any pending offline writes
+        const synced = await dbService.syncPendingWrites();
+        const syncMsg = synced > 0 ? ` Se sincronizaron ${synced} cambio(s) pendiente(s).` : '';
+        setToastMessage(`✅ ¡Conectado con éxito a Supabase Nube! Sincronización multi-dispositivo activa.${syncMsg}`);
         await fetchMembersFromDB();
       } else {
-        setToastMessage('⚠️ Supabase sigue sin responder. Revisa que el proyecto no esté pausado en supabase.com.');
+        const pending = dbService.getPendingWritesCount();
+        const pendingMsg = pending > 0 ? ` (${pending} cambio(s) pendientes de sincronizar)` : '';
+        setToastMessage(`⚠️ Supabase sigue sin responder. Revisa que el proyecto no esté pausado en supabase.com.${pendingMsg}`);
       }
     } catch {
       setToastMessage('⚠️ Error comprobando conexión con la nube.');
@@ -518,50 +527,80 @@ export default function HomePage() {
     if (!requireAuth() || !currentUser?.id) return;
     setErrorMessage('');
 
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: currentUser.id,
-          full_name: profileForm.name,
-          bio: profileForm.bio,
-          phone: profileForm.phone,
-          birthdate: profileForm.birthdate || null,
-          dance_role: profileForm.danceRole,
-          instagram: profileForm.instagram,
-          tiktok: profileForm.tiktok,
-          facebook: profileForm.facebook,
-          youtube: profileForm.youtube,
-          show_in_rankings: profileForm.showInRankings,
-          avatar_url: profileForm.avatarUrl || null,
-          updated_at: new Date().toISOString(),
-        });
+    // Build local update object (always applied)
+    const localUpdates = {
+      name: profileForm.name,
+      bio: profileForm.bio,
+      phone: profileForm.phone,
+      birthdate: profileForm.birthdate,
+      danceRole: profileForm.danceRole,
+      instagram: profileForm.instagram,
+      tiktok: profileForm.tiktok,
+      facebook: profileForm.facebook,
+      youtube: profileForm.youtube,
+      isPublic: profileForm.showInRankings,
+      avatarUrl: profileForm.avatarUrl || undefined,
+    };
 
-      if (error) throw new Error(error.message);
+    // Try Supabase upsert via safeDbCall (never throws, returns null if offline)
+    const supabasePayload = {
+      id: currentUser.id,
+      full_name: profileForm.name,
+      bio: profileForm.bio,
+      phone: profileForm.phone,
+      birthdate: profileForm.birthdate || null,
+      dance_role: profileForm.danceRole,
+      instagram: profileForm.instagram,
+      tiktok: profileForm.tiktok,
+      facebook: profileForm.facebook,
+      youtube: profileForm.youtube,
+      show_in_rankings: profileForm.showInRankings,
+      avatar_url: profileForm.avatarUrl || null,
+      updated_at: new Date().toISOString(),
+    };
 
-      setCurrentUser((prev) =>
-        prev
-          ? {
-              ...prev,
-              name: profileForm.name,
-              bio: profileForm.bio,
-              phone: profileForm.phone,
-              birthdate: profileForm.birthdate,
-              danceRole: profileForm.danceRole,
-              instagram: profileForm.instagram,
-              tiktok: profileForm.tiktok,
-              facebook: profileForm.facebook,
-              youtube: profileForm.youtube,
-              showInRankings: profileForm.showInRankings,
-              avatarUrl: profileForm.avatarUrl,
-            }
-          : null
-      );
+    const dbRes: any = await (async () => {
+      try {
+        return await Promise.race([
+          supabase.from('profiles').upsert(supabasePayload),
+          new Promise((resolve) => setTimeout(() => resolve(null), 2500)),
+        ]);
+      } catch {
+        return null;
+      }
+    })();
 
-      await fetchMembersFromDB();
-      setToastMessage('✅ Perfil y datos guardados correctamente en la base de datos.');
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Error al guardar el perfil en la base de datos.');
+    const savedToCloud = dbRes !== null && !dbRes.error;
+
+    // Always persist to localStorage via dbService
+    await dbService.updateMember(currentUser.id, localUpdates);
+
+    // Update React state
+    setCurrentUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            name: profileForm.name,
+            bio: profileForm.bio,
+            phone: profileForm.phone,
+            birthdate: profileForm.birthdate,
+            danceRole: profileForm.danceRole,
+            instagram: profileForm.instagram,
+            tiktok: profileForm.tiktok,
+            facebook: profileForm.facebook,
+            youtube: profileForm.youtube,
+            showInRankings: profileForm.showInRankings,
+            avatarUrl: profileForm.avatarUrl,
+          }
+        : null
+    );
+
+    await fetchMembersFromDB();
+
+    if (savedToCloud) {
+      setToastMessage('✅ Perfil guardado correctamente en la base de datos.');
+    } else {
+      setToastMessage('⚠️ Perfil guardado localmente. Se sincronizará con la nube cuando Supabase esté activo.');
     }
   };
 
@@ -791,7 +830,7 @@ export default function HomePage() {
         currentRole={currentUser?.role || 'guest'}
         orgName={currentUser?.orgName || activeOrgName}
         userName={currentUser?.name || 'Invitado'}
-        userEmail={currentUser?.email || 'sin-sesion@plazadance.com'}
+        userEmail={currentUser?.email || 'sin-sesion@comunydance.com'}
         userAvatar={currentUser?.avatarUrl || currentUser?.avatar}
         unreadCount={unreadNotificationsCount}
         activeTab={activeTab}

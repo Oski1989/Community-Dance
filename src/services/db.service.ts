@@ -83,6 +83,7 @@ const STORAGE_KEYS = {
   SOCIAL_EVENTS: 'comuny_db_social_events',
   NOTIFICATIONS: 'comuny_db_notifications',
   DELETED_MEMBERS: 'comuny_db_deleted_members',
+  PENDING_WRITES: 'comuny_db_pending_writes',
 };
 
 // Default bootstrap superadmin account
@@ -218,6 +219,60 @@ async function safeDbCall<T = any>(callFn: () => any, ms: number = 800): Promise
   }
 }
 
+// ─── Pending Write Queue ─────────────────────────────────────────────────────
+// When Supabase is offline, write operations are queued here and replayed on reconnect.
+interface PendingWrite {
+  id: string;
+  table: string;
+  op: 'upsert' | 'update' | 'delete';
+  payload: any;
+  filter?: { column: string; value: string };
+  timestamp: number;
+}
+
+function queuePendingWrite(write: Omit<PendingWrite, 'id' | 'timestamp'>) {
+  const pending = loadStorage<PendingWrite[]>(STORAGE_KEYS.PENDING_WRITES, []);
+  pending.push({ ...write, id: `pw_${Date.now()}`, timestamp: Date.now() });
+  saveStorage(STORAGE_KEYS.PENDING_WRITES, pending);
+}
+
+async function flushPendingWrites(): Promise<number> {
+  const pending = loadStorage<PendingWrite[]>(STORAGE_KEYS.PENDING_WRITES, []);
+  if (pending.length === 0) return 0;
+
+  let synced = 0;
+  const remaining: PendingWrite[] = [];
+
+  for (const pw of pending) {
+    let success = false;
+    try {
+      if (pw.op === 'upsert') {
+        const res: any = await safeDbCall(() => supabase.from(pw.table).upsert(pw.payload), 3000);
+        success = res !== null && !res.error;
+      } else if (pw.op === 'update' && pw.filter) {
+        const res: any = await safeDbCall(() =>
+          supabase.from(pw.table).update(pw.payload).eq(pw.filter!.column, pw.filter!.value), 3000);
+        success = res !== null && !res.error;
+      } else if (pw.op === 'delete' && pw.filter) {
+        const res: any = await safeDbCall(() =>
+          supabase.from(pw.table).delete().eq(pw.filter!.column, pw.filter!.value), 3000);
+        success = res !== null && !res.error;
+      }
+    } catch {
+      // keep in queue
+    }
+
+    if (success) {
+      synced++;
+    } else {
+      remaining.push(pw);
+    }
+  }
+
+  saveStorage(STORAGE_KEYS.PENDING_WRITES, remaining);
+  return synced;
+}
+
 // In-memory fallback if localStorage is unavailable
 const memoryStorage = new Map<string, any>();
 
@@ -258,6 +313,18 @@ class DatabaseService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Flush all pending offline writes back to Supabase (call when cloud is re-detected online)
+   */
+  async syncPendingWrites(): Promise<number> {
+    return flushPendingWrites();
+  }
+
+  /** How many pending writes are queued */
+  getPendingWritesCount(): number {
+    return loadStorage<any[]>(STORAGE_KEYS.PENDING_WRITES, []).length;
   }
 
   /**
@@ -493,7 +560,7 @@ class DatabaseService {
   }
 
   /**
-   * Update full member profile in the database (name, email, role, status, password, phone, discipline, danceRole, bio)
+   * Update full member profile in the database (name, email, role, status, password, phone, discipline, danceRole, bio, isPublic)
    */
   async updateMember(
     userId: string,
@@ -507,46 +574,53 @@ class DatabaseService {
       danceRole?: string;
       phone?: string;
       bio?: string;
+      isPublic?: boolean;
+      avatarUrl?: string;
     }>
   ): Promise<UserProfile> {
     const org = await this.getPrimaryOrganization();
     const isSuper = updates.role === 'superadmin';
 
-    // 1. Sync with Supabase if online
-    try {
-      if (updates.name || updates.bio || updates.phone || updates.discipline || updates.danceRole || updates.role) {
-        await safeDbCall(() =>
-          supabase.from('profiles').upsert({
-            id: userId,
-            full_name: updates.name,
-            bio: updates.bio,
-            phone: updates.phone,
-            dance_role: updates.danceRole,
-            system_role: isSuper ? 'superadmin' : 'user',
-            global_role: isSuper ? 'superadmin' : 'user',
-            updated_at: new Date().toISOString(),
-          })
-        );
-      }
-
-      if (updates.role) {
-        await safeDbCall(() =>
-          supabase.from('organization_members').upsert(
-            {
-              organization_id: org.id,
-              user_id: userId,
-              role: isSuper ? 'owner' : (updates.role as any),
-              is_active: updates.status ? updates.status.includes('Activo') : true,
-            },
-            { onConflict: 'organization_id,user_id' }
-          )
-        );
-      }
-    } catch (err) {
-      // Offline / network notice
+    // 1. Build the Supabase profiles payload
+    const profilePayload: any = { id: userId, updated_at: new Date().toISOString() };
+    if (updates.name !== undefined) profilePayload.full_name = updates.name;
+    if (updates.bio !== undefined) profilePayload.bio = updates.bio;
+    if (updates.phone !== undefined) profilePayload.phone = updates.phone;
+    if (updates.danceRole !== undefined) profilePayload.dance_role = updates.danceRole;
+    if (updates.discipline !== undefined) profilePayload.discipline = updates.discipline;
+    if (updates.isPublic !== undefined) profilePayload.show_in_rankings = updates.isPublic;
+    if (updates.avatarUrl !== undefined) profilePayload.avatar_url = updates.avatarUrl;
+    if (updates.role !== undefined) {
+      profilePayload.system_role = isSuper ? 'superadmin' : 'user';
+      profilePayload.global_role = isSuper ? 'superadmin' : 'user';
     }
 
-    // 2. Update local storage
+    // 2. Sync with Supabase if online; queue for later if offline
+    const hasProfileChanges = Object.keys(profilePayload).length > 2; // more than id + updated_at
+    if (hasProfileChanges) {
+      const profileRes: any = await safeDbCall(() => supabase.from('profiles').upsert(profilePayload));
+      if (profileRes === null) {
+        // Offline — queue for later sync
+        queuePendingWrite({ table: 'profiles', op: 'upsert', payload: profilePayload });
+      }
+    }
+
+    if (updates.role !== undefined) {
+      const orgPayload = {
+        organization_id: org.id,
+        user_id: userId,
+        role: isSuper ? 'owner' : (updates.role as any),
+        is_active: updates.status ? updates.status.includes('Activo') : true,
+      };
+      const orgRes: any = await safeDbCall(() =>
+        supabase.from('organization_members').upsert(orgPayload, { onConflict: 'organization_id,user_id' })
+      );
+      if (orgRes === null) {
+        queuePendingWrite({ table: 'organization_members', op: 'upsert', payload: orgPayload });
+      }
+    }
+
+    // 3. Update local storage
     const current = await this.getMembers();
     let updatedMember: UserProfile | null = null;
     const updated = current.map((m) => {
@@ -562,6 +636,8 @@ class DatabaseService {
           danceRole: updates.danceRole !== undefined ? updates.danceRole : m.danceRole,
           phone: updates.phone !== undefined ? updates.phone : m.phone,
           bio: updates.bio !== undefined ? updates.bio : m.bio,
+          isPublic: updates.isPublic !== undefined ? updates.isPublic : m.isPublic,
+          avatarUrl: updates.avatarUrl !== undefined ? updates.avatarUrl : m.avatarUrl,
           password: updates.password && updates.password.trim() !== '' ? updates.password : m.password,
         };
         return updatedMember;
@@ -594,11 +670,15 @@ class DatabaseService {
    * Delete member from the database (persisting deletion so it never resurrects)
    */
   async deleteMember(userId: string): Promise<void> {
-    try {
-      await safeDbCall(() => supabase.from('organization_members').delete().eq('user_id', userId));
-      await safeDbCall(() => supabase.from('profiles').delete().eq('id', userId));
-    } catch (err) {
-      // Offline / network notice
+    const orgRes: any = await safeDbCall(() => supabase.from('organization_members').delete().eq('user_id', userId));
+    const profRes: any = await safeDbCall(() => supabase.from('profiles').delete().eq('id', userId));
+
+    // If offline, queue both deletes for later sync
+    if (orgRes === null) {
+      queuePendingWrite({ table: 'organization_members', op: 'delete', payload: {}, filter: { column: 'user_id', value: userId } });
+    }
+    if (profRes === null) {
+      queuePendingWrite({ table: 'profiles', op: 'delete', payload: {}, filter: { column: 'id', value: userId } });
     }
 
     // Persist deleted ID in DELETED_MEMBERS storage
@@ -989,7 +1069,7 @@ class DatabaseService {
           location: e.location,
           description: e.description || '',
           price: e.price ? `${e.price} €` : 'Entrada Libre',
-          organizer: 'Escuela Plaza Dance',
+          organizer: 'Comuny Dance',
           badge: 'Social SBK',
           capacity: e.capacity || 100,
         }));
