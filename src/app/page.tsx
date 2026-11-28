@@ -542,26 +542,6 @@ export default function HomePage() {
     };
 
     try {
-      // Primary write: Supabase (source of truth)
-      const { error } = await supabase.from('profiles').upsert({
-        id: currentUser.id,
-        full_name: profileForm.name,
-        bio: profileForm.bio,
-        phone: profileForm.phone,
-        birthdate: profileForm.birthdate || null,
-        dance_role: profileForm.danceRole,
-        instagram: profileForm.instagram,
-        tiktok: profileForm.tiktok,
-        facebook: profileForm.facebook,
-        youtube: profileForm.youtube,
-        show_in_rankings: profileForm.showInRankings,
-        avatar_url: profileForm.avatarUrl || null,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (error) throw new Error(error.message);
-
-      // Keep localStorage in sync with Supabase
       await dbService.updateMember(currentUser.id, profileUpdates);
 
       setCurrentUser((prev) =>
@@ -571,17 +551,7 @@ export default function HomePage() {
       await fetchMembersFromDB();
       setToastMessage('✅ Perfil guardado correctamente en Supabase.');
     } catch (err: any) {
-      // If Supabase fails (offline), save locally and warn
-      try {
-        await dbService.updateMember(currentUser.id, profileUpdates);
-        setCurrentUser((prev) =>
-          prev ? { ...prev, ...profileUpdates, showInRankings: profileForm.showInRankings } : null
-        );
-        await fetchMembersFromDB();
-        setToastMessage('⚠️ Supabase no respondió — perfil guardado localmente. Se sincronizará cuando vuelva la conexión.');
-      } catch {
-        setErrorMessage('Error al guardar el perfil. Comprueba tu conexión.');
-      }
+      setErrorMessage(err.message || 'Error al guardar el perfil en la base de datos.');
     }
   };
 

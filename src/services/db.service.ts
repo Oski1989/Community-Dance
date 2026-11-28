@@ -88,7 +88,7 @@ const STORAGE_KEYS = {
 
 // Default bootstrap superadmin account
 const BOOTSTRAP_SUPERADMIN: UserProfile = {
-  id: 'usr_superadmin_001',
+  id: '11111111-1111-1111-1111-111111111111',
   name: 'SuperAdmin Global',
   email: 'superadmin@comunydance.com',
   password: 'PlazaDance2026!',
@@ -101,10 +101,10 @@ const BOOTSTRAP_SUPERADMIN: UserProfile = {
   bio: 'SuperAdministrador Global de Comuny Dance',
 };
 
-// Default seed accounts — one per privilege level
+// Default seed accounts — one per privilege level matching Supabase records
 const SEED_ACCOUNTS: UserProfile[] = [
   {
-    id: 'usr_owner_001',
+    id: '22222222-2222-2222-2222-222222222222',
     name: 'Director General',
     email: 'director@comunydance.com',
     password: 'Director2026!',
@@ -117,7 +117,7 @@ const SEED_ACCOUNTS: UserProfile[] = [
     bio: 'Director general de plataforma y gestión',
   },
   {
-    id: 'usr_admin_001',
+    id: '41933bfc-4573-44c5-94bf-48776a0b4732',
     name: 'Administrador',
     email: 'admin@comunydance.com',
     password: 'Admin2026!',
@@ -130,8 +130,8 @@ const SEED_ACCOUNTS: UserProfile[] = [
     bio: 'Administrador del sistema Comuny Dance',
   },
   {
-    id: 'usr_teacher_001',
-    name: 'Profesor',
+    id: '33333333-3333-3333-3333-333333333333',
+    name: 'Profesor SBK',
     email: 'profesor@comunydance.com',
     password: 'Profesor2026!',
     role: 'teacher',
@@ -143,7 +143,7 @@ const SEED_ACCOUNTS: UserProfile[] = [
     bio: 'Profesor de ritmos latinos y formación',
   },
   {
-    id: 'usr_reception_001',
+    id: '44444444-4444-4444-4444-444444444444',
     name: 'Recepción & Soporte',
     email: 'recepcion@comunydance.com',
     password: 'Recepcion2026!',
@@ -156,7 +156,7 @@ const SEED_ACCOUNTS: UserProfile[] = [
     bio: 'Atención a la comunidad y soporte',
   },
   {
-    id: 'usr_student_001',
+    id: '55555555-5555-5555-5555-555555555555',
     name: 'Bailarín / Alumno',
     email: 'alumno@comunydance.com',
     password: 'Alumno2026!',
@@ -172,7 +172,7 @@ const SEED_ACCOUNTS: UserProfile[] = [
 
 // Default organization
 const DEFAULT_ORGANIZATION = {
-  id: '00000000-0000-0000-0000-000000000001',
+  id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
   name: 'Comuny Dance',
   slug: 'comuny-dance',
   description: 'Plataforma Global y Comunidad de Baile',
@@ -365,66 +365,75 @@ class DatabaseService {
    * Fetch all registered members from DB (Profiles + Org Members)
    */
   async getMembers(): Promise<UserProfile[]> {
-    let remoteMembers: UserProfile[] = [];
+    const deletedIds = loadStorage<string[]>(STORAGE_KEYS.DELETED_MEMBERS, []);
 
+    // 1. In browser environment: fetch directly from our backend API route which has full Supabase admin access
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/members');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.members) && json.members.length > 0) {
+            const valid = json.members.filter((m: any) => !deletedIds.includes(m.id));
+            saveStorage(STORAGE_KEYS.MEMBERS, valid);
+            return valid;
+          }
+        }
+      } catch (apiErr) {
+        // Fallback to direct client call below
+      }
+    }
+
+    // 2. Direct Supabase query (for SSR, testing, or API route fallback)
+    let remoteMembers: UserProfile[] = [];
     try {
-      const profRes: any = await safeDbCall(() => supabase.from('profiles').select('*'), 3000);
-      const orgMemRes: any = await safeDbCall(() => supabase.from('organization_members').select('*'), 3000);
-      const privRes: any = await safeDbCall(() => supabase.from('profile_private').select('*'), 3000);
+      const profRes: any = await safeDbCall(() => supabase.from('profiles').select('*'), 4000);
+      const orgMemRes: any = await safeDbCall(() => supabase.from('organization_members').select('*'), 4000);
 
       const dbProfiles = profRes?.data;
       const dbOrgMembers = orgMemRes?.data;
-      const dbPrivateProfiles = privRes?.data;
 
       if (dbProfiles && dbProfiles.length > 0) {
-        const orgMap = new Map<string, { role: string; is_active: boolean }>();
+        const orgMap = new Map<string, string>();
         if (dbOrgMembers) {
           dbOrgMembers.forEach((om: any) => {
-            orgMap.set(om.user_id, { role: om.role, is_active: om.is_active });
+            orgMap.set(om.user_id, om.role);
           });
         }
 
-        const privMap = new Map<string, string>();
-        if (dbPrivateProfiles) {
-          dbPrivateProfiles.forEach((pp: any) => {
-            if (pp.user_id && pp.email) privMap.set(pp.user_id, pp.email);
-          });
-        }
-
-        const validProfiles = dbProfiles.filter((p: any) => {
-          const isMockName = ['Óscar Director', 'Laura Recepción', 'Elena Alumna', 'Roberto Fernández', 'Sofía Martínez'].includes(p.full_name);
-          return !isMockName;
-        });
-
-        remoteMembers = validProfiles.map((p: any) => {
-          const orgInfo = orgMap.get(p.id);
-          let role = 'student';
-
-          if (p.system_role === 'superadmin' || p.global_role === 'superadmin') {
-            role = 'superadmin';
-          } else if (orgInfo?.role) {
-            role = orgInfo.role;
+        remoteMembers = dbProfiles.map((p: any) => {
+          let meta: any = {};
+          if (p.nickname && p.nickname.startsWith('{') && p.nickname.endsWith('}')) {
+            try { meta = JSON.parse(p.nickname); } catch {}
           }
 
-          const email = p.email || privMap.get(p.id) || `${p.full_name?.toLowerCase().replace(/\s+/g, '') || 'usuario'}@comunydance.com`;
-          const status = orgInfo?.is_active === false ? 'Inactivo' : 'Activo';
+          const orgRole = orgMap.get(p.id);
+          let role = 'student';
+          if (p.system_role === 'superadmin' || p.global_role === 'superadmin') {
+            role = 'superadmin';
+          } else if (orgRole) {
+            role = orgRole;
+          }
+
+          const email = p.email || `${(p.full_name || 'usuario').toLowerCase().replace(/\s+/g, '')}@comunydance.com`;
 
           return {
             id: p.id,
             name: p.full_name || 'Usuario',
             email,
             role,
-            status,
-            isPublic: p.show_in_rankings ?? true,
-            discipline: p.discipline || (role === 'teacher' ? 'Profesor SBK' : 'Salsa & Bachata'),
-            danceRole: p.dance_role || 'both',
-            instagram: p.instagram || '',
-            tiktok: p.tiktok || '',
-            facebook: p.facebook || '',
-            youtube: p.youtube || '',
-            bio: p.bio || '',
-            avatar: p.avatar || (role === 'superadmin' ? '👑' : role === 'teacher' ? '🕺' : role === 'reception' ? '👩‍💼' : '💃'),
+            status: 'Activo',
+            isPublic: meta.isPublic ?? true,
+            discipline: meta.discipline || (role === 'teacher' ? 'Profesor SBK' : 'Salsa & Bachata'),
+            danceRole: meta.danceRole || p.dance_role || 'both',
+            instagram: meta.instagram || '',
+            tiktok: meta.tiktok || '',
+            facebook: meta.facebook || '',
+            youtube: meta.youtube || '',
+            bio: meta.bio || '',
+            avatar: role === 'superadmin' ? '👑' : role === 'teacher' ? '🕺' : role === 'reception' ? '👩‍💼' : '💃',
             avatarUrl: p.avatar_url || '',
+            password: meta.password || undefined,
           };
         });
       }
@@ -432,17 +441,9 @@ class DatabaseService {
       // Offline / network notice
     }
 
-    const deletedIds = loadStorage<string[]>(STORAGE_KEYS.DELETED_MEMBERS, []);
-
     // ── SUPABASE IS SOURCE OF TRUTH ───────────────────────────────────────────
-    // When Supabase returned data, it wins. We only fall back to localStorage
-    // when Supabase is completely offline (remoteMembers is empty).
     if (remoteMembers.length > 0) {
-      // Filter out locally-deleted IDs
       const supabaseMembers = remoteMembers.filter((m) => !deletedIds.includes(m.id));
-
-      // Also include members that were created locally while offline
-      // and have not yet been pushed to Supabase (their IDs won't be in remoteMembers)
       const remoteIds = new Set(remoteMembers.map((m) => m.id));
       const stored = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, []);
       const localOnlyMembers = stored.filter(
@@ -455,7 +456,6 @@ class DatabaseService {
     }
 
     // ── OFFLINE FALLBACK ──────────────────────────────────────────────────────
-    // Supabase unreachable — serve from localStorage / seed defaults
     const defaultAccounts = [BOOTSTRAP_SUPERADMIN, ...SEED_ACCOUNTS].filter((m) => !deletedIds.includes(m.id));
     const stored = loadStorage<UserProfile[] | null>(STORAGE_KEYS.MEMBERS, null);
     const localMembers: UserProfile[] = stored !== null ? stored : defaultAccounts;
@@ -476,59 +476,66 @@ class DatabaseService {
     bio?: string;
     avatar?: string;
   }): Promise<UserProfile> {
-    const org = await this.getPrimaryOrganization();
     const cleanEmail = params.email.trim().toLowerCase();
     const cleanName = params.name.trim();
     const role = params.role || 'student';
-    const isSuper = role === 'superadmin';
 
-    let generatedId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
-    // Try creating via Supabase Auth
-    try {
-      if (params.password) {
-        const authData: any = await safeDbCall(() =>
-          supabase.auth.signUp({
-            email: cleanEmail,
-            password: params.password!,
-            options: {
-              data: {
-                full_name: cleanName,
-                role: role,
-              },
-            },
-          })
-        );
-
-        if (authData?.data?.user?.id) {
-          generatedId = authData.data.user.id;
+    // 1. Browser: call server API route for reliable Supabase persistence
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.member) {
+            const currentList = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, []);
+            const updatedList = [json.member, ...currentList.filter((m) => m.id !== json.member.id)];
+            saveStorage(STORAGE_KEYS.MEMBERS, updatedList);
+            return json.member;
+          }
         }
+      } catch (apiErr) {
+        // Fallback to direct client call
       }
+    }
 
-      // Upsert to profiles table
+    // 2. Direct Supabase / offline fallback
+    const org = await this.getPrimaryOrganization();
+    const isSuper = role === 'superadmin';
+    const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : '00000000-0000-0000-0000-' + Date.now().toString().padStart(12, '0');
+
+    const meta = {
+      bio: params.bio || '',
+      danceRole: params.danceRole || 'both',
+      discipline: params.discipline || (role === 'teacher' ? 'Profesor SBK' : 'Salsa & Bachata'),
+      isPublic: true,
+      password: params.password,
+    };
+
+    try {
       await safeDbCall(() =>
         supabase.from('profiles').upsert({
           id: generatedId,
           email: cleanEmail,
           full_name: cleanName,
           system_role: isSuper ? 'superadmin' : 'user',
-          global_role: isSuper ? 'superadmin' : 'user',
-          dance_role: params.danceRole || 'both',
-          bio: params.bio || '',
-          phone: params.phone || '',
-          show_in_rankings: true,
+          nickname: JSON.stringify(meta),
+          phone: params.phone || null,
           updated_at: new Date().toISOString(),
         })
       );
 
-      // Upsert to organization_members table
       await safeDbCall(() =>
         supabase.from('organization_members').upsert(
           {
             organization_id: org.id,
             user_id: generatedId,
             role: isSuper ? 'owner' : (role as any),
-            is_active: true,
           },
           { onConflict: 'organization_id,user_id' }
         )
@@ -545,9 +552,9 @@ class DatabaseService {
       role: role,
       status: 'Activo',
       isPublic: true,
-      discipline: params.discipline || (role === 'teacher' ? 'Profesor SBK' : 'Salsa & Bachata'),
-      danceRole: params.danceRole || 'both',
-      bio: params.bio || '',
+      discipline: meta.discipline,
+      danceRole: meta.danceRole,
+      bio: meta.bio,
       phone: params.phone || '',
       avatar: params.avatar || (role === 'superadmin' ? '👑' : role === 'teacher' ? '🕺' : role === 'reception' ? '👩‍💼' : '💃'),
     };
@@ -578,46 +585,60 @@ class DatabaseService {
       avatarUrl?: string;
     }>
   ): Promise<UserProfile> {
+    // 1. Browser: call server API route for reliable Supabase persistence
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/members', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, updates }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            const current = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, []);
+            const updated = current.map((m) => (m.id === userId ? { ...m, ...updates } : m));
+            saveStorage(STORAGE_KEYS.MEMBERS, updated);
+            const found = updated.find((m) => m.id === userId);
+            if (found) return found;
+          }
+        }
+      } catch (apiErr) {
+        // Fallback to direct client call
+      }
+    }
+
+    // 2. Direct Supabase / fallback update
     const org = await this.getPrimaryOrganization();
     const isSuper = updates.role === 'superadmin';
 
-    // 1. Build the Supabase profiles payload
+    const metaUpdates: any = {};
+    if (updates.bio !== undefined) metaUpdates.bio = updates.bio;
+    if (updates.danceRole !== undefined) metaUpdates.danceRole = updates.danceRole;
+    if (updates.discipline !== undefined) metaUpdates.discipline = updates.discipline;
+    if (updates.isPublic !== undefined) metaUpdates.isPublic = updates.isPublic;
+    if (updates.password !== undefined) metaUpdates.password = updates.password;
+
     const profilePayload: any = { id: userId, updated_at: new Date().toISOString() };
     if (updates.name !== undefined) profilePayload.full_name = updates.name;
-    if (updates.bio !== undefined) profilePayload.bio = updates.bio;
     if (updates.phone !== undefined) profilePayload.phone = updates.phone;
-    if (updates.danceRole !== undefined) profilePayload.dance_role = updates.danceRole;
-    if (updates.discipline !== undefined) profilePayload.discipline = updates.discipline;
-    if (updates.isPublic !== undefined) profilePayload.show_in_rankings = updates.isPublic;
     if (updates.avatarUrl !== undefined) profilePayload.avatar_url = updates.avatarUrl;
+    if (Object.keys(metaUpdates).length > 0) profilePayload.nickname = JSON.stringify(metaUpdates);
     if (updates.role !== undefined) {
       profilePayload.system_role = isSuper ? 'superadmin' : 'user';
-      profilePayload.global_role = isSuper ? 'superadmin' : 'user';
     }
 
-    // 2. Sync with Supabase if online; queue for later if offline
-    const hasProfileChanges = Object.keys(profilePayload).length > 2; // more than id + updated_at
-    if (hasProfileChanges) {
-      const profileRes: any = await safeDbCall(() => supabase.from('profiles').upsert(profilePayload));
-      if (profileRes === null) {
-        // Offline — queue for later sync
-        queuePendingWrite({ table: 'profiles', op: 'upsert', payload: profilePayload });
-      }
-    }
+    await safeDbCall(() => supabase.from('profiles').upsert(profilePayload));
 
     if (updates.role !== undefined) {
       const orgPayload = {
         organization_id: org.id,
         user_id: userId,
         role: isSuper ? 'owner' : (updates.role as any),
-        is_active: updates.status ? updates.status.includes('Activo') : true,
       };
-      const orgRes: any = await safeDbCall(() =>
+      await safeDbCall(() =>
         supabase.from('organization_members').upsert(orgPayload, { onConflict: 'organization_id,user_id' })
       );
-      if (orgRes === null) {
-        queuePendingWrite({ table: 'organization_members', op: 'upsert', payload: orgPayload });
-      }
     }
 
     // 3. Update local storage
@@ -670,16 +691,20 @@ class DatabaseService {
    * Delete member from the database (persisting deletion so it never resurrects)
    */
   async deleteMember(userId: string): Promise<void> {
-    const orgRes: any = await safeDbCall(() => supabase.from('organization_members').delete().eq('user_id', userId));
-    const profRes: any = await safeDbCall(() => supabase.from('profiles').delete().eq('id', userId));
+    // 1. Browser: call server API route for reliable Supabase deletion
+    if (typeof window !== 'undefined') {
+      try {
+        await fetch(`/api/members?userId=${encodeURIComponent(userId)}`, {
+          method: 'DELETE',
+        });
+      } catch (apiErr) {
+        // Fallback below
+      }
+    }
 
-    // If offline, queue both deletes for later sync
-    if (orgRes === null) {
-      queuePendingWrite({ table: 'organization_members', op: 'delete', payload: {}, filter: { column: 'user_id', value: userId } });
-    }
-    if (profRes === null) {
-      queuePendingWrite({ table: 'profiles', op: 'delete', payload: {}, filter: { column: 'id', value: userId } });
-    }
+    // 2. Direct Supabase call
+    await safeDbCall(() => supabase.from('organization_members').delete().eq('user_id', userId));
+    await safeDbCall(() => supabase.from('profiles').delete().eq('id', userId));
 
     // Persist deleted ID in DELETED_MEMBERS storage
     const deletedIds = loadStorage<string[]>(STORAGE_KEYS.DELETED_MEMBERS, []);
