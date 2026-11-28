@@ -191,7 +191,7 @@ function markSupabaseOnline() {
   isSupabaseOnline = true;
 }
 
-async function safeDbCall<T = any>(callFn: () => any, ms: number = 800): Promise<T | null> {
+async function safeDbCall<T = any>(callFn: () => any, ms: number = 5000): Promise<T | null> {
   // If recently marked offline, don't stall on Windows DNS getaddrinfo
   if (!isSupabaseOnline && Date.now() - lastCheckTime < 20000) {
     return null;
@@ -368,9 +368,9 @@ class DatabaseService {
     let remoteMembers: UserProfile[] = [];
 
     try {
-      const profRes: any = await safeDbCall(() => supabase.from('profiles').select('*'));
-      const orgMemRes: any = await safeDbCall(() => supabase.from('organization_members').select('*'));
-      const privRes: any = await safeDbCall(() => supabase.from('profile_private').select('*'));
+      const profRes: any = await safeDbCall(() => supabase.from('profiles').select('*'), 3000);
+      const orgMemRes: any = await safeDbCall(() => supabase.from('organization_members').select('*'), 3000);
+      const privRes: any = await safeDbCall(() => supabase.from('profile_private').select('*'), 3000);
 
       const dbProfiles = profRes?.data;
       const dbOrgMembers = orgMemRes?.data;
@@ -432,34 +432,34 @@ class DatabaseService {
       // Offline / network notice
     }
 
-    // Merge with persisted DB records
     const deletedIds = loadStorage<string[]>(STORAGE_KEYS.DELETED_MEMBERS, []);
-    const defaultAccounts = [BOOTSTRAP_SUPERADMIN, ...SEED_ACCOUNTS].filter((m) => !deletedIds.includes(m.id));
 
-    // Load local storage members, falling back to defaultAccounts if uninitialized
+    // ── SUPABASE IS SOURCE OF TRUTH ───────────────────────────────────────────
+    // When Supabase returned data, it wins. We only fall back to localStorage
+    // when Supabase is completely offline (remoteMembers is empty).
+    if (remoteMembers.length > 0) {
+      // Filter out locally-deleted IDs
+      const supabaseMembers = remoteMembers.filter((m) => !deletedIds.includes(m.id));
+
+      // Also include members that were created locally while offline
+      // and have not yet been pushed to Supabase (their IDs won't be in remoteMembers)
+      const remoteIds = new Set(remoteMembers.map((m) => m.id));
+      const stored = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, []);
+      const localOnlyMembers = stored.filter(
+        (m) => !remoteIds.has(m.id) && !deletedIds.includes(m.id)
+      );
+
+      const finalMembers = [...supabaseMembers, ...localOnlyMembers];
+      saveStorage(STORAGE_KEYS.MEMBERS, finalMembers);
+      return finalMembers;
+    }
+
+    // ── OFFLINE FALLBACK ──────────────────────────────────────────────────────
+    // Supabase unreachable — serve from localStorage / seed defaults
+    const defaultAccounts = [BOOTSTRAP_SUPERADMIN, ...SEED_ACCOUNTS].filter((m) => !deletedIds.includes(m.id));
     const stored = loadStorage<UserProfile[] | null>(STORAGE_KEYS.MEMBERS, null);
     const localMembers: UserProfile[] = stored !== null ? stored : defaultAccounts;
-
-    const map = new Map<string, UserProfile>();
-
-    // 1. Local members (reflects all user edits, creations, and deletions)
-    localMembers.forEach((m) => {
-      if (!deletedIds.includes(m.id)) {
-        map.set(m.id, m);
-      }
-    });
-
-    // 2. Remote members from Supabase (if not deleted locally)
-    remoteMembers.forEach((m) => {
-      if (!deletedIds.includes(m.id)) {
-        const existing = map.get(m.id);
-        map.set(m.id, existing ? { ...m, ...existing } : m);
-      }
-    });
-
-    const finalMembers = Array.from(map.values());
-    saveStorage(STORAGE_KEYS.MEMBERS, finalMembers);
-    return finalMembers;
+    return localMembers.filter((m) => !deletedIds.includes(m.id));
   }
 
   /**

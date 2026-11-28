@@ -527,8 +527,7 @@ export default function HomePage() {
     if (!requireAuth() || !currentUser?.id) return;
     setErrorMessage('');
 
-    // Build local update object (always applied)
-    const localUpdates = {
+    const profileUpdates = {
       name: profileForm.name,
       bio: profileForm.bio,
       phone: profileForm.phone,
@@ -542,65 +541,47 @@ export default function HomePage() {
       avatarUrl: profileForm.avatarUrl || undefined,
     };
 
-    // Try Supabase upsert via safeDbCall (never throws, returns null if offline)
-    const supabasePayload = {
-      id: currentUser.id,
-      full_name: profileForm.name,
-      bio: profileForm.bio,
-      phone: profileForm.phone,
-      birthdate: profileForm.birthdate || null,
-      dance_role: profileForm.danceRole,
-      instagram: profileForm.instagram,
-      tiktok: profileForm.tiktok,
-      facebook: profileForm.facebook,
-      youtube: profileForm.youtube,
-      show_in_rankings: profileForm.showInRankings,
-      avatar_url: profileForm.avatarUrl || null,
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      // Primary write: Supabase (source of truth)
+      const { error } = await supabase.from('profiles').upsert({
+        id: currentUser.id,
+        full_name: profileForm.name,
+        bio: profileForm.bio,
+        phone: profileForm.phone,
+        birthdate: profileForm.birthdate || null,
+        dance_role: profileForm.danceRole,
+        instagram: profileForm.instagram,
+        tiktok: profileForm.tiktok,
+        facebook: profileForm.facebook,
+        youtube: profileForm.youtube,
+        show_in_rankings: profileForm.showInRankings,
+        avatar_url: profileForm.avatarUrl || null,
+        updated_at: new Date().toISOString(),
+      });
 
-    const dbRes: any = await (async () => {
+      if (error) throw new Error(error.message);
+
+      // Keep localStorage in sync with Supabase
+      await dbService.updateMember(currentUser.id, profileUpdates);
+
+      setCurrentUser((prev) =>
+        prev ? { ...prev, ...profileUpdates, showInRankings: profileForm.showInRankings } : null
+      );
+
+      await fetchMembersFromDB();
+      setToastMessage('✅ Perfil guardado correctamente en Supabase.');
+    } catch (err: any) {
+      // If Supabase fails (offline), save locally and warn
       try {
-        return await Promise.race([
-          supabase.from('profiles').upsert(supabasePayload),
-          new Promise((resolve) => setTimeout(() => resolve(null), 2500)),
-        ]);
+        await dbService.updateMember(currentUser.id, profileUpdates);
+        setCurrentUser((prev) =>
+          prev ? { ...prev, ...profileUpdates, showInRankings: profileForm.showInRankings } : null
+        );
+        await fetchMembersFromDB();
+        setToastMessage('⚠️ Supabase no respondió — perfil guardado localmente. Se sincronizará cuando vuelva la conexión.');
       } catch {
-        return null;
+        setErrorMessage('Error al guardar el perfil. Comprueba tu conexión.');
       }
-    })();
-
-    const savedToCloud = dbRes !== null && !dbRes.error;
-
-    // Always persist to localStorage via dbService
-    await dbService.updateMember(currentUser.id, localUpdates);
-
-    // Update React state
-    setCurrentUser((prev) =>
-      prev
-        ? {
-            ...prev,
-            name: profileForm.name,
-            bio: profileForm.bio,
-            phone: profileForm.phone,
-            birthdate: profileForm.birthdate,
-            danceRole: profileForm.danceRole,
-            instagram: profileForm.instagram,
-            tiktok: profileForm.tiktok,
-            facebook: profileForm.facebook,
-            youtube: profileForm.youtube,
-            showInRankings: profileForm.showInRankings,
-            avatarUrl: profileForm.avatarUrl,
-          }
-        : null
-    );
-
-    await fetchMembersFromDB();
-
-    if (savedToCloud) {
-      setToastMessage('✅ Perfil guardado correctamente en la base de datos.');
-    } else {
-      setToastMessage('⚠️ Perfil guardado localmente. Se sincronizará con la nube cuando Supabase esté activo.');
     }
   };
 
