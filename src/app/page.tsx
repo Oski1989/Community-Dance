@@ -62,7 +62,7 @@ export default function HomePage() {
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isGuestBannerDismissed, setIsGuestBannerDismissed] = useState<boolean>(false);
-  const [activeOrgName, setActiveOrgName] = useState<string>('Plaza Dance');
+  const [activeOrgName, setActiveOrgName] = useState<string>('Comuny Dance');
   const [activeOrgId, setActiveOrgId] = useState<string>('');
 
   // App Navigation & UI State
@@ -136,6 +136,19 @@ export default function HomePage() {
   const [newMemberPhone, setNewMemberPhone] = useState('');
   const [newMemberBio, setNewMemberBio] = useState('');
 
+  // SuperAdmin Edit Member Modal State
+  const [isEditMemberModalOpen, setIsEditMemberModalOpen] = useState<boolean>(false);
+  const [editingMemberId, setEditingMemberId] = useState<string>('');
+  const [editMemberName, setEditMemberName] = useState<string>('');
+  const [editMemberEmail, setEditMemberEmail] = useState<string>('');
+  const [editMemberPassword, setEditMemberPassword] = useState<string>('');
+  const [editMemberRole, setEditMemberRole] = useState<string>('student');
+  const [editMemberStatus, setEditMemberStatus] = useState<string>('Activo');
+  const [editMemberDiscipline, setEditMemberDiscipline] = useState<string>('Salsa & Bachata');
+  const [editMemberDanceRole, setEditMemberDanceRole] = useState<string>('both');
+  const [editMemberPhone, setEditMemberPhone] = useState<string>('');
+  const [editMemberBio, setEditMemberBio] = useState<string>('');
+
   // 2. Program creation
   const [newProgramName, setNewProgramName] = useState('');
   const [newProgramDiscipline, setNewProgramDiscipline] = useState('Salsa');
@@ -156,7 +169,7 @@ export default function HomePage() {
   // 6. Social Event creation
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDate, setNewEventDate] = useState('Este Viernes, 23:00 - 03:00');
-  const [newEventLocation, setNewEventLocation] = useState('Plaza Dance Club');
+  const [newEventLocation, setNewEventLocation] = useState('Sala Social Comuny Dance');
   const [newEventPrice, setNewEventPrice] = useState('10 € (Incluye consumición)');
   const [newEventDescription, setNewEventDescription] = useState('Fiesta social SBK abierta para todos los niveles.');
 
@@ -241,6 +254,65 @@ export default function HomePage() {
       typedWord: '',
       actionType: 'delete',
     });
+  };
+
+  // Open Edit Member Modal (Only SuperAdmin)
+  const handleOpenEditMemberModal = (m: UserProfile) => {
+    if (currentUser?.role !== 'superadmin') {
+      setErrorMessage('Solo el SuperAdministrador tiene permisos para editar usuarios.');
+      return;
+    }
+    setEditingMemberId(m.id);
+    setEditMemberName(m.name);
+    setEditMemberEmail(m.email);
+    setEditMemberPassword('');
+    setEditMemberRole(m.role);
+    setEditMemberStatus(m.status.includes('Activo') ? 'Activo' : 'Inactivo');
+    setEditMemberDiscipline(m.discipline || 'Salsa & Bachata');
+    setEditMemberDanceRole(m.danceRole || 'both');
+    setEditMemberPhone(m.phone || '');
+    setEditMemberBio(m.bio || '');
+    setIsEditMemberModalOpen(true);
+  };
+
+  // Save Edited Member to Database (Only SuperAdmin)
+  const handleSaveEditMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (currentUser?.role !== 'superadmin') {
+      setErrorMessage('Solo el SuperAdministrador tiene permisos para editar usuarios.');
+      return;
+    }
+    if (!editingMemberId) return;
+
+    try {
+      const updated = await dbService.updateMember(editingMemberId, {
+        name: editMemberName,
+        email: editMemberEmail,
+        role: editMemberRole,
+        status: editMemberStatus,
+        discipline: editMemberDiscipline,
+        danceRole: editMemberDanceRole,
+        phone: editMemberPhone,
+        bio: editMemberBio,
+        ...(editMemberPassword.trim() ? { password: editMemberPassword.trim() } : {}),
+      });
+
+      setMembers((prev) => prev.map((m) => (m.id === editingMemberId ? updated : m)));
+
+      if (currentUser?.id === editingMemberId) {
+        setCurrentUser({
+          ...currentUser,
+          name: updated.name,
+          email: updated.email,
+          role: updated.role,
+        });
+      }
+
+      setIsEditMemberModalOpen(false);
+      setToastMessage(`✅ Usuario "${updated.name}" actualizado correctamente en la base de datos.`);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al actualizar el usuario en la base de datos.');
+    }
   };
 
   // Check Active Supabase Session on Mount & Fetch Real DB Data
@@ -1063,12 +1135,12 @@ export default function HomePage() {
             <div className="space-y-8 animate-fade-in">
               <div className="p-8 rounded-3xl bg-gradient-to-r from-purple-900/40 via-indigo-900/30 to-slate-900 border border-purple-500/30 relative overflow-hidden shadow-2xl">
                 <div className="max-w-3xl space-y-4">
-                  <span className="badge badge-purple px-3 py-1 text-xs">✨ Bienvenidx a Plaza Dance</span>
+                  <span className="badge badge-purple px-3 py-1 text-xs">✨ Bienvenidx a Comuny Dance</span>
                   <h1 className="font-heading font-black text-3xl sm:text-4xl text-white leading-tight">
                     Plataforma Integral de Gestión y Comunidad de Baile SBK
                   </h1>
                   <p className="text-gray-300 text-sm leading-relaxed">
-                    Plaza Dance une a directores, profesores, alumnos y amantes del baile SBK (Salsa, Bachata, Kizomba)
+                    Comuny Dance une a directores, profesores, alumnos y amantes del baile SBK (Salsa, Bachata, Kizomba)
                     en un ecosistema transparente con gestión de aforos en tiempo real, temarios estructurados con vídeo,
                     retos interactivos y eventos sociales.
                   </p>
@@ -1563,22 +1635,33 @@ export default function HomePage() {
                               </button>
                             </td>
                             <td className="py-3 text-right">
-                              <button
-                                onClick={() => {
-                                  setSecurityConfirmModal({
-                                    isOpen: true,
-                                    title: `⚠️ ELIMINAR CUENTA DE ${m.name.toUpperCase()}`,
-                                    message: `Acción destructiva e irreversible. Esta cuenta será completamente eliminada de la base de datos de la escuela. Para confirmar la eliminación, escribe la palabra "ELIMINAR" abajo:`,
-                                    requiredWord: 'ELIMINAR',
-                                    typedWord: '',
-                                    actionType: 'delete',
-                                    targetMemberId: m.id,
-                                  });
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-bold hover:bg-rose-500/30 transition"
-                              >
-                                🗑️ Eliminar
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                {currentUser?.role === 'superadmin' && (
+                                  <button
+                                    onClick={() => handleOpenEditMemberModal(m)}
+                                    className="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold hover:bg-indigo-500/30 transition flex items-center gap-1 cursor-pointer"
+                                    title="Editar datos del usuario (Solo SuperAdmin)"
+                                  >
+                                    ✏️ Editar
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    setSecurityConfirmModal({
+                                      isOpen: true,
+                                      title: `⚠️ ELIMINAR CUENTA DE ${m.name.toUpperCase()}`,
+                                      message: `Acción destructiva e irreversible. Esta cuenta será completamente eliminada de la base de datos. Para confirmar la eliminación, escribe la palabra "ELIMINAR" abajo:`,
+                                      requiredWord: 'ELIMINAR',
+                                      typedWord: '',
+                                      actionType: 'delete',
+                                      targetMemberId: m.id,
+                                    });
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-bold hover:bg-rose-500/30 transition cursor-pointer"
+                                >
+                                  🗑️ Eliminar
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -2152,7 +2235,7 @@ export default function HomePage() {
                 type="text"
                 value={newEventLocation}
                 onChange={(e) => setNewEventLocation(e.target.value)}
-                placeholder="Ej: Sala Principal Plaza Dance"
+                placeholder="Ej: Sala Social Comuny Dance"
                 className="form-input text-xs"
                 required
               />
@@ -2580,6 +2663,147 @@ export default function HomePage() {
           </div>
         </div>
       </Modal>
+
+      {/* SuperAdmin Edit Member Modal */}
+      {currentUser?.role === 'superadmin' && isEditMemberModalOpen && (
+        <Modal
+          isOpen={isEditMemberModalOpen}
+          onClose={() => setIsEditMemberModalOpen(false)}
+          title={`✏️ Editar Usuario: ${editMemberName}`}
+        >
+          <form onSubmit={handleSaveEditMember} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  value={editMemberName}
+                  onChange={(e) => setEditMemberName(e.target.value)}
+                  className="form-input text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Correo Electrónico</label>
+                <input
+                  type="email"
+                  value={editMemberEmail}
+                  onChange={(e) => setEditMemberEmail(e.target.value)}
+                  className="form-input text-xs"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Rol en la Plataforma</label>
+                <select
+                  value={editMemberRole}
+                  onChange={(e) => setEditMemberRole(e.target.value)}
+                  className="form-input text-xs font-semibold"
+                >
+                  <option value="superadmin">👑 SUPERADMIN</option>
+                  <option value="owner">🏛️ DIRECTOR</option>
+                  <option value="admin">⚙️ ADMINISTRADOR</option>
+                  <option value="teacher">🕺 PROFESOR</option>
+                  <option value="reception">📋 RECEPCIÓN</option>
+                  <option value="student">💃 ALUMNO</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Estado de la Cuenta</label>
+                <select
+                  value={editMemberStatus}
+                  onChange={(e) => setEditMemberStatus(e.target.value)}
+                  className="form-input text-xs font-semibold"
+                >
+                  <option value="Activo">🟢 Activo</option>
+                  <option value="Inactivo">🔴 Inactivo</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Disciplina Principal</label>
+                <input
+                  type="text"
+                  value={editMemberDiscipline}
+                  onChange={(e) => setEditMemberDiscipline(e.target.value)}
+                  placeholder="Ej: Salsa & Bachata"
+                  className="form-input text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Rol de Baile</label>
+                <select
+                  value={editMemberDanceRole}
+                  onChange={(e) => setEditMemberDanceRole(e.target.value as any)}
+                  className="form-input text-xs"
+                >
+                  <option value="both">Ambos (Leader & Follower)</option>
+                  <option value="leader">Líder (Leader)</option>
+                  <option value="follower">Seguidor/a (Follower)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Teléfono (Opcional)</label>
+                <input
+                  type="tel"
+                  value={editMemberPhone}
+                  onChange={(e) => setEditMemberPhone(e.target.value)}
+                  placeholder="+34 600 000 000"
+                  className="form-input text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Nueva Contraseña (Opcional)</label>
+                <input
+                  type="password"
+                  value={editMemberPassword}
+                  onChange={(e) => setEditMemberPassword(e.target.value)}
+                  placeholder="Dejar en blanco para no cambiarla"
+                  className="form-input text-xs"
+                  minLength={6}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1">Biografía / Notas</label>
+              <textarea
+                value={editMemberBio}
+                onChange={(e) => setEditMemberBio(e.target.value)}
+                placeholder="Breve descripción o notas internas del usuario..."
+                className="form-input text-xs h-16 resize-none"
+              />
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsEditMemberModalOpen(false)}
+                className="btn-secondary flex-1 justify-center text-xs py-2.5 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn-primary flex-1 justify-center text-xs py-2.5 cursor-pointer"
+              >
+                💾 Guardar Cambios en BD
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

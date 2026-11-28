@@ -24,9 +24,9 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   isLoggedIn = false,
   currentRole = 'student',
-  orgName = 'Plaza Dance',
+  orgName = 'Comuny Dance',
   userName = 'Invitado',
-  userEmail = 'sin-sesion@plazadance.com',
+  userEmail = 'sin-sesion@comunydance.com',
   userAvatar = '',
   unreadCount = 0,
   activeTab = 'about',
@@ -92,20 +92,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onTabChange && onTabChange('about')}
             className="flex items-center gap-2 cursor-pointer group"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-black text-white text-lg shadow-lg shadow-purple-500/30 group-hover:scale-105 transition transform">
-              P
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-black text-white text-sm shadow-lg shadow-purple-500/30 group-hover:scale-105 transition transform">
+              CD
             </div>
             <span className="font-heading font-extrabold text-xl tracking-tight text-white">
-              PLAZA <span className="gradient-text-violet">DANCE</span>
+              COMUNY <span className="gradient-text-violet">DANCE</span>
             </span>
           </div>
-
-          {isLoggedIn && currentRole !== 'guest' && orgName && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-gray-300">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="font-medium">{orgName}</span>
-            </div>
-          )}
 
           {/* Discreto indicador de estado: solo un punto circular verde o ámbar sin textos visibles */}
           <button

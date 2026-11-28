@@ -12,7 +12,7 @@ describe('Production Database & User Roles Flow Test Suite', () => {
 
     const superadmin = members.find((m) => m.role === 'superadmin');
     expect(superadmin).toBeDefined();
-    expect(superadmin?.email).toBe('superadmin@plazadance.com');
+    expect(superadmin?.email).toBe('superadmin@comunydance.com');
 
     // Ensure NO mock users exist
     const mockNames = ['Óscar Director', 'Laura Recepción', 'Elena Alumna', 'Roberto Fernández', 'Sofía Martínez'];
@@ -161,5 +161,47 @@ describe('Production Database & User Roles Flow Test Suite', () => {
     const updatedSess = sessions.find((s) => s.id === session.id);
     expect(updatedSess?.confirmed).toBe(2);
     expect(updatedSess?.waitlist).toBe(1);
+  });
+
+  it('should update full member profile and persist edits', async () => {
+    const user = await dbService.createMember({
+      name: 'Mario Test',
+      email: 'mario.test@comuny.com',
+      password: 'MarioPassword123!',
+      role: 'student',
+    });
+
+    const updated = await dbService.updateMember(user.id, {
+      name: 'Mario SuperDirector',
+      role: 'owner',
+      phone: '+34 699 999 888',
+      discipline: 'Kizomba',
+    });
+
+    expect(updated.name).toBe('Mario SuperDirector');
+    expect(updated.role).toBe('owner');
+    expect(updated.phone).toBe('+34 699 999 888');
+
+    const members = await dbService.getMembers();
+    const found = members.find((m) => m.id === user.id);
+    expect(found?.name).toBe('Mario SuperDirector');
+    expect(found?.role).toBe('owner');
+  });
+
+  it('should permanently delete member and not resurrect on subsequent reloads', async () => {
+    const toDelete = await dbService.createMember({
+      name: 'Temporal User',
+      email: 'temp.delete@comuny.com',
+      role: 'student',
+    });
+
+    await dbService.deleteMember(toDelete.id);
+
+    // Call getMembers multiple times to simulate reloads
+    const membersReload1 = await dbService.getMembers();
+    expect(membersReload1.some((m) => m.id === toDelete.id)).toBe(false);
+
+    const membersReload2 = await dbService.getMembers();
+    expect(membersReload2.some((m) => m.id === toDelete.id)).toBe(false);
   });
 });

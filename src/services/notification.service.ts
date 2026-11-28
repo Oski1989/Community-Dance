@@ -28,7 +28,7 @@ export class NotificationService {
         `<div style="font-family: sans-serif; padding: 20px;">
           <h2>${title}</h2>
           <p>${message}</p>
-          <p style="color: #666; font-size: 12px;">Equipo de Plaza Dance</p>
+          <p style="color: #666; font-size: 12px;">Equipo de Comuny Dance</p>
         </div>`
       );
     }

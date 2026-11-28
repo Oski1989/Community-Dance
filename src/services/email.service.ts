@@ -42,7 +42,7 @@ export class ResendEmailProvider implements IEmailProvider {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'Plaza Dance <onboarding@resend.dev>',
+          from: 'Comuny Dance <onboarding@resend.dev>',
           to: payload.to,
           subject: payload.subject,
           html: payload.html,

@@ -110,12 +110,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       // 2. Check Database Service records (for bootstrap superadmin or offline/sync support)
       if (!authenticated) {
         const members = await dbService.getMembers();
-        const matchedUser = members.find((m) => m.email.toLowerCase() === cleanEmail);
+        const altEmail = cleanEmail.includes('@plazadance.com')
+          ? cleanEmail.replace('@plazadance.com', '@comunydance.com')
+          : cleanEmail.replace('@comunydance.com', '@plazadance.com');
+
+        const matchedUser = members.find((m) => m.email.toLowerCase() === cleanEmail || m.email.toLowerCase() === altEmail);
 
         if (matchedUser) {
           // Allow superadmin bootstrap credentials
-          if (cleanEmail === 'superadmin@plazadance.com') {
-            if (password === 'PlazaDance2026!') {
+          if (cleanEmail === 'superadmin@plazadance.com' || cleanEmail === 'superadmin@comunydance.com') {
+            if (password === 'PlazaDance2026!' || password === 'ComunyDance2026!') {
               authenticated = true;
               userId = matchedUser.id;
               userName = matchedUser.name;
@@ -192,8 +196,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       // Send confirmation email asynchronously
       emailService.sendEmail(
         cleanEmail,
-        '¡Tu cuenta en Plaza Dance ha sido creada!',
-        `<h1>¡Hola ${cleanName}!</h1><p>Tu cuenta de alumno ha sido registrada exitosamente en la base de datos de Plaza Dance.</p>`
+        '¡Tu cuenta en Comuny Dance ha sido creada!',
+        `<h1>¡Hola ${cleanName}!</h1><p>Tu cuenta ha sido registrada exitosamente en la plataforma Comuny Dance.</p>`
       ).catch(() => { });
 
       onAuthSuccess({
@@ -225,13 +229,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
 
         {/* Brand Title */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-black text-white text-2xl mx-auto mb-3 shadow-lg shadow-purple-500/30">
-            P
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center font-black text-white text-xl mx-auto mb-3 shadow-lg shadow-purple-500/30">
+            CD
           </div>
           <h2 className="font-heading font-extrabold text-2xl text-white tracking-tight">
-            PLAZA <span className="gradient-text-violet">DANCE</span>
+            COMUNY <span className="gradient-text-violet">DANCE</span>
           </h2>
-          <p className="text-xs text-gray-400 mt-1">Acceso seguro a la plataforma de gestión de escuelas</p>
+          <p className="text-xs text-gray-400 mt-1">Plataforma global y comunidad de baile</p>
         </div>
 
         {/* Tabs: Login / Register */}
@@ -343,7 +347,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
               disabled={loading}
               className="btn-primary w-full justify-center text-sm py-2.5 mt-2"
             >
-              {loading ? 'Verificando datos...' : 'Entrar a Plaza Dance'}
+              {loading ? 'Verificando datos...' : 'Entrar a Comuny Dance'}
             </button>
           </form>
         )}

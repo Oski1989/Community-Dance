@@ -2,14 +2,14 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Plaza Dance App — Plataforma de Gestión de Escuelas de Baile Multi-Tenant',
-  description: 'Plataforma segura y escalable para la gestión de academias de baile, control de reservas, aforos, asistencia por QR, bonos y retos comunitarios.',
-  keywords: ['baile', 'escuela de baile', 'academias', 'salsa', 'bachata', 'kizomba', 'reservas', 'aforos', 'gestión multi-tenant'],
+  title: 'Comuny Dance — Plataforma Global y Comunidad de Baile',
+  description: 'Plataforma integral para bailarines, profesores, escuelas y eventos de baile: gestión de clases, reservas, retos y comunidad social.',
+  keywords: ['baile', 'comunidad de baile', 'escuela de baile', 'academias', 'salsa', 'bachata', 'kizomba', 'reservas', 'aforos', 'social dance'],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Plaza Dance',
+    title: 'Comuny Dance',
   },
 };
 

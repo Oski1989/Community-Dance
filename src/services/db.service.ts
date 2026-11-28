@@ -82,13 +82,14 @@ const STORAGE_KEYS = {
   COMMUNITY_POSTS: 'comuny_db_community_posts',
   SOCIAL_EVENTS: 'comuny_db_social_events',
   NOTIFICATIONS: 'comuny_db_notifications',
+  DELETED_MEMBERS: 'comuny_db_deleted_members',
 };
 
 // Default bootstrap superadmin account
 const BOOTSTRAP_SUPERADMIN: UserProfile = {
   id: 'usr_superadmin_001',
   name: 'SuperAdmin Global',
-  email: 'superadmin@plazadance.com',
+  email: 'superadmin@comunydance.com',
   password: 'PlazaDance2026!',
   role: 'superadmin',
   status: 'Activo',
@@ -96,28 +97,28 @@ const BOOTSTRAP_SUPERADMIN: UserProfile = {
   discipline: 'Dirección & SaaS',
   danceRole: 'both',
   avatar: '👑',
-  bio: 'SuperAdministrador Global de Plaza Dance SaaS',
+  bio: 'SuperAdministrador Global de Comuny Dance',
 };
 
-// Default seed accounts — one per privilege level (never deleted by resetAndCreateDefaultUsers)
+// Default seed accounts — one per privilege level
 const SEED_ACCOUNTS: UserProfile[] = [
   {
     id: 'usr_owner_001',
-    name: 'Director Plaza Dance',
-    email: 'director@plazadance.com',
+    name: 'Director General',
+    email: 'director@comunydance.com',
     password: 'Director2026!',
     role: 'owner',
     status: 'Activo',
     isPublic: true,
-    discipline: 'Dirección',
+    discipline: 'Dirección & Gestión',
     danceRole: 'both',
     avatar: '🏛️',
-    bio: 'Director principal de la escuela',
+    bio: 'Director general de plataforma y gestión',
   },
   {
     id: 'usr_admin_001',
-    name: 'Administrador Plaza Dance',
-    email: 'admin@plazadance.com',
+    name: 'Administrador',
+    email: 'admin@comunydance.com',
     password: 'Admin2026!',
     role: 'admin',
     status: 'Activo',
@@ -125,12 +126,12 @@ const SEED_ACCOUNTS: UserProfile[] = [
     discipline: 'Administración',
     danceRole: 'both',
     avatar: '⚙️',
-    bio: 'Administrador de la escuela',
+    bio: 'Administrador del sistema Comuny Dance',
   },
   {
     id: 'usr_teacher_001',
-    name: 'Profesor Plaza Dance',
-    email: 'profesor@plazadance.com',
+    name: 'Profesor',
+    email: 'profesor@comunydance.com',
     password: 'Profesor2026!',
     role: 'teacher',
     status: 'Activo',
@@ -138,25 +139,25 @@ const SEED_ACCOUNTS: UserProfile[] = [
     discipline: 'Salsa & Bachata',
     danceRole: 'leader',
     avatar: '🕺',
-    bio: 'Profesor de Salsa y Bachata',
+    bio: 'Profesor de ritmos latinos y formación',
   },
   {
     id: 'usr_reception_001',
-    name: 'Recepción Plaza Dance',
-    email: 'recepcion@plazadance.com',
+    name: 'Recepción & Soporte',
+    email: 'recepcion@comunydance.com',
     password: 'Recepcion2026!',
     role: 'reception',
     status: 'Activo',
     isPublic: true,
-    discipline: 'Administración',
+    discipline: 'Gestión & Recepción',
     danceRole: 'both',
     avatar: '📋',
-    bio: 'Personal de recepción',
+    bio: 'Atención a la comunidad y soporte',
   },
   {
     id: 'usr_student_001',
-    name: 'Alumno Plaza Dance',
-    email: 'alumno@plazadance.com',
+    name: 'Bailarín / Alumno',
+    email: 'alumno@comunydance.com',
     password: 'Alumno2026!',
     role: 'student',
     status: 'Activo',
@@ -164,16 +165,16 @@ const SEED_ACCOUNTS: UserProfile[] = [
     discipline: 'Salsa & Bachata',
     danceRole: 'both',
     avatar: '💃',
-    bio: 'Alumno de la escuela de baile',
+    bio: 'Miembro de la comunidad Comuny Dance',
   },
 ];
 
 // Default organization
 const DEFAULT_ORGANIZATION = {
   id: '00000000-0000-0000-0000-000000000001',
-  name: 'Plaza Dance',
-  slug: 'plaza-dance',
-  description: 'Escuela de Baile y Gestión SBK',
+  name: 'Comuny Dance',
+  slug: 'comuny-dance',
+  description: 'Plataforma Global y Comunidad de Baile',
 };
 
 // Circuit-breaker for network DNS resolution to avoid blocking on offline/paused Supabase projects
@@ -323,7 +324,12 @@ class DatabaseService {
           });
         }
 
-        remoteMembers = dbProfiles.map((p: any) => {
+        const validProfiles = dbProfiles.filter((p: any) => {
+          const isMockName = ['Óscar Director', 'Laura Recepción', 'Elena Alumna', 'Roberto Fernández', 'Sofía Martínez'].includes(p.full_name);
+          return !isMockName;
+        });
+
+        remoteMembers = validProfiles.map((p: any) => {
           const orgInfo = orgMap.get(p.id);
           let role = 'student';
 
@@ -333,7 +339,7 @@ class DatabaseService {
             role = orgInfo.role;
           }
 
-          const email = p.email || privMap.get(p.id) || `${p.full_name?.toLowerCase().replace(/\s+/g, '') || 'usuario'}@plazadance.com`;
+          const email = p.email || privMap.get(p.id) || `${p.full_name?.toLowerCase().replace(/\s+/g, '') || 'usuario'}@comunydance.com`;
           const status = orgInfo?.is_active === false ? 'Inactivo' : 'Activo';
 
           return {
@@ -359,15 +365,30 @@ class DatabaseService {
       // Offline / network notice
     }
 
-    // Merge with persisted DB records (always include seed accounts + superadmin as baseline)
-    const defaultAccounts = [BOOTSTRAP_SUPERADMIN, ...SEED_ACCOUNTS];
-    const localMembers = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, defaultAccounts);
+    // Merge with persisted DB records
+    const deletedIds = loadStorage<string[]>(STORAGE_KEYS.DELETED_MEMBERS, []);
+    const defaultAccounts = [BOOTSTRAP_SUPERADMIN, ...SEED_ACCOUNTS].filter((m) => !deletedIds.includes(m.id));
+
+    // Load local storage members, falling back to defaultAccounts if uninitialized
+    const stored = loadStorage<UserProfile[] | null>(STORAGE_KEYS.MEMBERS, null);
+    const localMembers: UserProfile[] = stored !== null ? stored : defaultAccounts;
+
     const map = new Map<string, UserProfile>();
 
-    // Seed accounts always present (can be overridden by stored version if role was changed)
-    defaultAccounts.forEach((m) => map.set(m.id, m));
-    localMembers.forEach((m) => map.set(m.id, m));
-    remoteMembers.forEach((m) => map.set(m.id, m));
+    // 1. Local members (reflects all user edits, creations, and deletions)
+    localMembers.forEach((m) => {
+      if (!deletedIds.includes(m.id)) {
+        map.set(m.id, m);
+      }
+    });
+
+    // 2. Remote members from Supabase (if not deleted locally)
+    remoteMembers.forEach((m) => {
+      if (!deletedIds.includes(m.id)) {
+        const existing = map.get(m.id);
+        map.set(m.id, existing ? { ...m, ...existing } : m);
+      }
+    });
 
     const finalMembers = Array.from(map.values());
     saveStorage(STORAGE_KEYS.MEMBERS, finalMembers);
@@ -472,67 +493,105 @@ class DatabaseService {
   }
 
   /**
-   * Update member role in the database
+   * Update full member profile in the database (name, email, role, status, password, phone, discipline, danceRole, bio)
    */
-  async updateMemberRole(userId: string, newRole: string): Promise<void> {
+  async updateMember(
+    userId: string,
+    updates: Partial<{
+      name: string;
+      email: string;
+      role: string;
+      status: string;
+      password?: string;
+      discipline?: string;
+      danceRole?: string;
+      phone?: string;
+      bio?: string;
+    }>
+  ): Promise<UserProfile> {
     const org = await this.getPrimaryOrganization();
-    const isSuper = newRole === 'superadmin';
+    const isSuper = updates.role === 'superadmin';
 
+    // 1. Sync with Supabase if online
     try {
-      await safeDbCall(() =>
-        supabase.from('profiles').upsert({
-          id: userId,
-          system_role: isSuper ? 'superadmin' : 'user',
-          global_role: isSuper ? 'superadmin' : 'user',
-          updated_at: new Date().toISOString(),
-        })
-      );
+      if (updates.name || updates.bio || updates.phone || updates.discipline || updates.danceRole || updates.role) {
+        await safeDbCall(() =>
+          supabase.from('profiles').upsert({
+            id: userId,
+            full_name: updates.name,
+            bio: updates.bio,
+            phone: updates.phone,
+            dance_role: updates.danceRole,
+            system_role: isSuper ? 'superadmin' : 'user',
+            global_role: isSuper ? 'superadmin' : 'user',
+            updated_at: new Date().toISOString(),
+          })
+        );
+      }
 
-      await safeDbCall(() =>
-        supabase.from('organization_members').upsert(
-          {
-            organization_id: org.id,
-            user_id: userId,
-            role: isSuper ? 'owner' : (newRole as any),
-            is_active: true,
-          },
-          { onConflict: 'organization_id,user_id' }
-        )
-      );
+      if (updates.role) {
+        await safeDbCall(() =>
+          supabase.from('organization_members').upsert(
+            {
+              organization_id: org.id,
+              user_id: userId,
+              role: isSuper ? 'owner' : (updates.role as any),
+              is_active: updates.status ? updates.status.includes('Activo') : true,
+            },
+            { onConflict: 'organization_id,user_id' }
+          )
+        );
+      }
     } catch (err) {
       // Offline / network notice
     }
 
+    // 2. Update local storage
     const current = await this.getMembers();
-    const updated = current.map((m) => (m.id === userId ? { ...m, role: newRole } : m));
+    let updatedMember: UserProfile | null = null;
+    const updated = current.map((m) => {
+      if (m.id === userId) {
+        updatedMember = {
+          ...m,
+          ...updates,
+          name: updates.name !== undefined && updates.name.trim() !== '' ? updates.name.trim() : m.name,
+          email: updates.email !== undefined && updates.email.trim() !== '' ? updates.email.trim().toLowerCase() : m.email,
+          role: updates.role !== undefined ? updates.role : m.role,
+          status: updates.status !== undefined ? updates.status : m.status,
+          discipline: updates.discipline !== undefined ? updates.discipline : m.discipline,
+          danceRole: updates.danceRole !== undefined ? updates.danceRole : m.danceRole,
+          phone: updates.phone !== undefined ? updates.phone : m.phone,
+          bio: updates.bio !== undefined ? updates.bio : m.bio,
+          password: updates.password && updates.password.trim() !== '' ? updates.password : m.password,
+        };
+        return updatedMember;
+      }
+      return m;
+    });
+
     saveStorage(STORAGE_KEYS.MEMBERS, updated);
+    if (!updatedMember) {
+      throw new Error('Usuario no encontrado');
+    }
+    return updatedMember;
+  }
+
+  /**
+   * Update member role in the database
+   */
+  async updateMemberRole(userId: string, newRole: string): Promise<void> {
+    await this.updateMember(userId, { role: newRole });
   }
 
   /**
    * Toggle member active status in the database
    */
   async updateMemberStatus(userId: string, isActive: boolean): Promise<void> {
-    const org = await this.getPrimaryOrganization();
-    const statusText = isActive ? 'Activo' : 'Inactivo';
-
-    try {
-      await safeDbCall(() =>
-        supabase
-          .from('organization_members')
-          .update({ is_active: isActive })
-          .match({ organization_id: org.id, user_id: userId })
-      );
-    } catch (err) {
-      // Offline / network notice
-    }
-
-    const current = await this.getMembers();
-    const updated = current.map((m) => (m.id === userId ? { ...m, status: statusText } : m));
-    saveStorage(STORAGE_KEYS.MEMBERS, updated);
+    await this.updateMember(userId, { status: isActive ? 'Activo' : 'Inactivo' });
   }
 
   /**
-   * Delete member from the database
+   * Delete member from the database (persisting deletion so it never resurrects)
    */
   async deleteMember(userId: string): Promise<void> {
     try {
@@ -542,7 +601,14 @@ class DatabaseService {
       // Offline / network notice
     }
 
-    const current = await this.getMembers();
+    // Persist deleted ID in DELETED_MEMBERS storage
+    const deletedIds = loadStorage<string[]>(STORAGE_KEYS.DELETED_MEMBERS, []);
+    if (!deletedIds.includes(userId)) {
+      deletedIds.push(userId);
+      saveStorage(STORAGE_KEYS.DELETED_MEMBERS, deletedIds);
+    }
+
+    const current = loadStorage<UserProfile[]>(STORAGE_KEYS.MEMBERS, []);
     const updated = current.filter((m) => m.id !== userId);
     saveStorage(STORAGE_KEYS.MEMBERS, updated);
   }
